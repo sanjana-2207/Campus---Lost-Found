@@ -1,0 +1,25 @@
+Project Title: Campus Lost and Found Management System
+
+Description: A Java and MySQL-based application to manage lost and found items within a college campus, helping students and staff report, search for, and recover their belongings efficiently.
+
+OOPS Concepts: Classes, Objects, Inheritance, Encapsulation, Abstraction, and Polymorphism.
+
+DBMS Concepts: Tables, Primary Keys, Foreign Keys, CRUD Operations, SQL Joins, Constraints, and Transactions.
+
+Technologies Used: Java, MySQL, JDBC, and Java Swing.
+
+Main Features:
+
+* Report lost and found items with descriptions, dates, and locations.
+
+* Search and filter items by category and location.
+
+* Identify potential matches between lost and found reports.
+
+* Submit ownership claims and verify rightful owners.
+
+* Track claim status and item recovery.
+
+* Generate reports of lost, found, and recovered items.
+
+Objective: To simplify the process of recovering lost belongings on campus through a centralized platform while demonstrating the practical application of OOPS and DBMS concepts.
