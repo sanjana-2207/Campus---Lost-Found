@@ -45,7 +45,8 @@ REC - Find & Lost/
 ├── Doc.txt                        Original project brief
 ├── README.md                      This file
 ├── compile.bat                    javac build script (Windows)
-├── run.bat                        java launcher (Windows)
+├── run.bat                        java launcher; starts MySQL if it is down
+├── start-database.bat             starts the local MySQL instance (port 3306)
 ├── lib/                           mysql-connector-j-8.4.0.jar (included)
 ├── resources/
 │   └── db.properties              Database URL / user / password
@@ -79,6 +80,7 @@ REC - Find & Lost/
 3. The JDBC driver is already in lib/ (mysql-connector-j-8.4.0.jar)
 4. Edit resources/db.properties and set db.password to your MySQL password.
 5. Double-click compile.bat  →  then run.bat
+   (run.bat starts MySQL for you if port 3306 is not already listening)
 ```
 
 Full instructions, including IntelliJ / Eclipse / VS Code setup, are in

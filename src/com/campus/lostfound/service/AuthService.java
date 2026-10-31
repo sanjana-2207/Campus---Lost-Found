@@ -16,6 +16,11 @@ import com.campus.lostfound.util.PasswordUtil;
  */
 public class AuthService {
 
+    private static final int MAX_NAME_LENGTH = 80;
+    private static final int MAX_EMAIL_LENGTH = 120;
+    private static final int MAX_PHONE_LENGTH = 15;
+    private static final int MAX_PASSWORD_LENGTH = 128;
+
     private final UserDAO userDAO;
 
     public AuthService() {
@@ -42,12 +47,25 @@ public class AuthService {
             // Same message for both cases: never reveal which accounts exist.
             throw new ValidationException("Invalid e-mail address or password.");
         }
+
+        // Upgrade a legacy SHA-256 digest (or an old iteration count) now that
+        // the plain password is available. A failure here must not block login.
+        if (PasswordUtil.needsRehash(user.getPasswordHash())) {
+            try {
+                String upgraded = PasswordUtil.hash(plainPassword);
+                userDAO.updatePasswordHash(user.getUserId(), upgraded);
+                user.setPasswordHash(upgraded);
+            } catch (RuntimeException ignored) {
+                // The old hash still works; the upgrade can be retried next time.
+            }
+        }
         return user;
     }
 
     /**
-     * Creates a student or staff account.
-     * Administrators are created only through the database seed.
+     * Creates a student account. Staff accounts are provisioned by the
+     * administrator and administrators only exist through the database seed, so
+     * self-registration can never escalate privileges.
      */
     public User register(String fullName, String email, String phone,
                          String plainPassword, String confirmPassword, Role role) {
@@ -55,20 +73,37 @@ public class AuthService {
         if (isBlank(fullName) || fullName.trim().length() < 3) {
             throw new ValidationException("Enter your full name (at least 3 characters).");
         }
+        if (fullName.trim().length() > MAX_NAME_LENGTH) {
+            throw new ValidationException("Your full name must be at most "
+                    + MAX_NAME_LENGTH + " characters.");
+        }
         if (isBlank(email) || !email.trim().matches("^[\\w.+-]+@[\\w-]+\\.[\\w.-]+$")) {
             throw new ValidationException("Enter a valid e-mail address, for example name@campus.edu.");
+        }
+        if (email.trim().length() > MAX_EMAIL_LENGTH) {
+            throw new ValidationException("Your e-mail address must be at most "
+                    + MAX_EMAIL_LENGTH + " characters.");
         }
         if (isBlank(phone) || !phone.replaceAll("[^0-9]", "").matches("\\d{10,12}")) {
             throw new ValidationException("Enter a valid phone number with 10 to 12 digits.");
         }
+        if (phone.trim().length() > MAX_PHONE_LENGTH) {
+            throw new ValidationException("Your phone number must be at most "
+                    + MAX_PHONE_LENGTH + " characters.");
+        }
         if (plainPassword == null || plainPassword.length() < 6) {
             throw new ValidationException("Choose a password with at least 6 characters.");
+        }
+        if (plainPassword.length() > MAX_PASSWORD_LENGTH) {
+            throw new ValidationException("Choose a password with at most "
+                    + MAX_PASSWORD_LENGTH + " characters.");
         }
         if (!plainPassword.equals(confirmPassword)) {
             throw new ValidationException("The two passwords do not match.");
         }
-        if (role == null) {
-            throw new ValidationException("Select an account type.");
+        if (role != Role.STUDENT) {
+            throw new ValidationException("Student accounts can be created here. "
+                    + "Staff accounts are issued by the lost-and-found desk.");
         }
 
         String normalisedEmail = email.trim().toLowerCase();
@@ -77,7 +112,7 @@ public class AuthService {
         }
 
         User user = User.newUser(fullName.trim(), normalisedEmail, phone.trim(),
-                PasswordUtil.hash(plainPassword), role);
+                PasswordUtil.hash(plainPassword), Role.STUDENT);
         userDAO.insert(user);
         return user;
     }

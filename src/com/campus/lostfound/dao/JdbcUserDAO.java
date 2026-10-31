@@ -100,6 +100,20 @@ public class JdbcUserDAO extends AbstractJdbcDAO<User> implements UserDAO {
     }
 
     @Override
+    public boolean updatePasswordHash(int userId, String passwordHash) {
+        String sql = "UPDATE users SET password_hash = ? WHERE user_id = ?";
+        try (Connection connection = openConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+
+            statement.setString(1, passwordHash);
+            statement.setInt(2, userId);
+            return statement.executeUpdate() > 0;
+        } catch (SQLException ex) {
+            throw wrap("Could not update the password", ex);
+        }
+    }
+
+    @Override
     public int insert(User user) {
         String sql = "INSERT INTO users (full_name, email, phone, password_hash, role) "
                    + "VALUES (?, ?, ?, ?, ?)";
@@ -115,9 +129,10 @@ public class JdbcUserDAO extends AbstractJdbcDAO<User> implements UserDAO {
             statement.executeUpdate();
 
             try (ResultSet keys = statement.getGeneratedKeys()) {
-                if (keys.next()) {
-                    user.setUserId(keys.getInt(1));
+                if (!keys.next()) {
+                    throw new SQLException("The database did not return a generated user id");
                 }
+                user.setUserId(keys.getInt(1));
             }
             return user.getUserId();
 

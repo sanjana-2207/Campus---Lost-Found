@@ -6,7 +6,7 @@
 --           or  MySQL Workbench -> File -> Open SQL Script -> Execute
 --
 --  This single script creates the database, all 8 tables, 2 views,
---  2 triggers and demonstration seed data.
+--  3 triggers and demonstration seed data.
 --
 --  DEMO LOGINS (password shown in plain text only for the demo seed):
 --    admin@campus.edu    / admin123     -> ADMIN
@@ -30,7 +30,7 @@ CREATE TABLE users (
     full_name     VARCHAR(80)  NOT NULL,
     email         VARCHAR(120) NOT NULL,
     phone         VARCHAR(15)  NOT NULL,
-    password_hash CHAR(64)     NOT NULL,          -- SHA-256 hex digest
+    password_hash VARCHAR(255) NOT NULL,          -- PBKDF2 (legacy SHA-256 still accepted)
     role          ENUM('STUDENT','STAFF','ADMIN') NOT NULL DEFAULT 'STUDENT',
     created_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT uq_users_email  UNIQUE (email),
@@ -128,6 +128,14 @@ CREATE TABLE claims (
     verified_at  DATETIME  NULL,
     remarks      VARCHAR(255) NULL,
 
+    -- 1 for an active claim, NULL once it is rejected. Combined with the
+    -- unique index below this lets a rejected claimant try again while still
+    -- preventing two active claims for the same item and claimant.
+    active_claim TINYINT GENERATED ALWAYS AS (
+        CASE WHEN status IN ('PENDING','APPROVED','RECOVERED')
+             THEN 1 ELSE NULL END
+    ) STORED,
+
     CONSTRAINT fk_claims_item      FOREIGN KEY (item_id)
         REFERENCES items (item_id) ON DELETE CASCADE,
     CONSTRAINT fk_claims_claimant  FOREIGN KEY (claimant_id)
@@ -135,8 +143,10 @@ CREATE TABLE claims (
     CONSTRAINT fk_claims_verifier  FOREIGN KEY (verified_by)
         REFERENCES users (user_id),
 
-    -- DBMS constraint demo: a user cannot claim the same item twice
-    CONSTRAINT uq_claim_once UNIQUE (item_id, claimant_id),
+    -- DBMS constraint demo: one ACTIVE claim per user and item
+    CONSTRAINT uq_claim_active UNIQUE (item_id, claimant_id, active_claim),
+    INDEX idx_claims_item (item_id),
+    INDEX idx_claims_claimant (claimant_id),
     INDEX idx_claims_status (status)
 ) ENGINE = InnoDB;
 
@@ -175,6 +185,24 @@ BEGIN
     IF OLD.status <> NEW.status THEN
         INSERT INTO item_status_history (item_id, old_status, new_status, note)
         VALUES (NEW.item_id, OLD.status, NEW.status, 'Status updated by application');
+    END IF;
+END$$
+
+-- Only FOUND reports can be claimed. The service layer checks this first, but
+-- the trigger also protects the data if somebody inserts a row directly.
+CREATE TRIGGER trg_claims_before_insert
+BEFORE INSERT ON claims
+FOR EACH ROW
+BEGIN
+    DECLARE v_item_type VARCHAR(10);
+
+    SELECT item_type INTO v_item_type
+    FROM items
+    WHERE item_id = NEW.item_id;
+
+    IF v_item_type IS NOT NULL AND v_item_type <> 'FOUND' THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Ownership claims can only be raised against FOUND items';
     END IF;
 END$$
 
@@ -272,15 +300,15 @@ ORDER BY match_score DESC, days_apart ASC;
 -- -- Users ---------------------------------------------------------------
 INSERT INTO users (full_name, email, phone, password_hash, role) VALUES
 ('Dr. Ramesh Kumar', 'admin@campus.edu',    '9840010001',
- '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9', 'ADMIN'),
+ 'pbkdf2$PBKDF2WithHmacSHA256$120000$xGaeTQPTzyIkFIbQx2O1CA==$osWCzh48qS5HhrnYY9Oa4WOqtGXioDT6NPs5Y8EWWhU=', 'ADMIN'),
 ('Suresh Babu',      'security@campus.edu', '9840010002',
- '10176e7b7b24d317acfcf8d2064cfd2f24e154f7b5a96603077d5ef813d6a6b6', 'STAFF'),
+ 'pbkdf2$PBKDF2WithHmacSHA256$120000$0+ugTqXvJYqCdtXvKe4Byw==$Z1xN37Nas/p0KiP2GCCfLOJM3XJ/u7b2YhECVv/vPM0=', 'STAFF'),
 ('Arjun Mehta',      'arjun@campus.edu',    '9840010003',
- '703b0a3d6ad75b649a28adde7d83c6251da457549263bc7ff45ec709b0a8448b', 'STUDENT'),
+ 'pbkdf2$PBKDF2WithHmacSHA256$120000$d+pFHtuvetqchy2tFj9UkQ==$AZwXAoFfKA2+lSoLR3XAOVNEsLioruY1X4zqGH/4xi8=', 'STUDENT'),
 ('Priya Nair',       'priya@campus.edu',    '9840010004',
- '703b0a3d6ad75b649a28adde7d83c6251da457549263bc7ff45ec709b0a8448b', 'STUDENT'),
+ 'pbkdf2$PBKDF2WithHmacSHA256$120000$d+pFHtuvetqchy2tFj9UkQ==$AZwXAoFfKA2+lSoLR3XAOVNEsLioruY1X4zqGH/4xi8=', 'STUDENT'),
 ('Karthik Rao',      'karthik@campus.edu',  '9840010005',
- '703b0a3d6ad75b649a28adde7d83c6251da457549263bc7ff45ec709b0a8448b', 'STUDENT');
+ 'pbkdf2$PBKDF2WithHmacSHA256$120000$d+pFHtuvetqchy2tFj9UkQ==$AZwXAoFfKA2+lSoLR3XAOVNEsLioruY1X4zqGH/4xi8=', 'STUDENT');
 
 -- -- Categories ----------------------------------------------------------
 INSERT INTO categories (name, description) VALUES
@@ -372,17 +400,21 @@ INSERT INTO found_items (item_id, storage_location, handed_to_security, finder_n
 (14, 'CS Block room 204',         TRUE,  NULL);
 
 -- -- Claims --------------------------------------------------------------
-INSERT INTO claims (item_id, claimant_id, proof, status, verified_by, verified_at, remarks) VALUES
+INSERT INTO claims (item_id, claimant_id, proof, status, submitted_at,
+                    verified_by, verified_at, remarks) VALUES
 (8, 5, 'I lost two keys on a red ring with a temple token on 5 October near Hostel Block A. The warden can confirm my room number.',
- 'APPROVED', 2, '2026-10-08 10:20:00', 'Verified against the hostel register.'),
+ 'APPROVED', '2026-10-07 09:15:00', 2, '2026-10-08 10:20:00',
+ 'Verified against the hostel register.'),
 (14, 5, 'Black Casio fx-991. My roll number 21CS1057 is written inside the battery cover, and the slide case has a hairline scratch on the front.',
- 'PENDING', NULL, NULL, NULL),
+ 'PENDING', '2026-10-21 11:00:00', NULL, NULL, NULL),
 (14, 4, 'Casio fx-991 with "Priya N." written on the back cover.',
- 'PENDING', NULL, NULL, NULL),
+ 'PENDING', '2026-10-21 11:30:00', NULL, NULL, NULL),
 (6, 3, 'My student ID card, roll number 21CS1043, with a red lanyard.',
- 'RECOVERED', 2, '2026-10-23 16:45:00', 'Returned at the security office after ID verification.'),
+ 'RECOVERED', '2026-10-23 10:00:00', 2, '2026-10-23 16:45:00',
+ 'Returned at the security office after ID verification.'),
 (11, 3, 'Black frame spectacles in a brown case.',
- 'REJECTED', 2, '2026-10-26 09:10:00', 'Frame colour and case do not match the item found.');
+ 'REJECTED', '2026-10-25 14:00:00', 2, '2026-10-26 09:10:00',
+ 'Frame colour and case do not match the item found.');
 
 -- ============================================================================
 --  Verification queries (run these to show the schema works)

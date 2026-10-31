@@ -11,6 +11,7 @@ import com.campus.lostfound.model.Claim;
 import com.campus.lostfound.model.ClaimStatus;
 import com.campus.lostfound.model.Item;
 import com.campus.lostfound.model.ItemStatus;
+import com.campus.lostfound.model.ItemType;
 import com.campus.lostfound.model.Role;
 import com.campus.lostfound.model.User;
 
@@ -33,6 +34,10 @@ import java.util.List;
  */
 public class ClaimService {
 
+    private static final int MIN_PROOF_LENGTH = 15;
+    private static final int MAX_PROOF_LENGTH = 2000;
+    private static final int MAX_REMARKS_LENGTH = 255;
+
     private final ClaimDAO claimDAO;
     private final ItemDAO itemDAO;
 
@@ -49,7 +54,14 @@ public class ClaimService {
     //  Claimant side
     // ==================================================================
 
-    /** Files a new PENDING claim after checking the business rules. */
+    /**
+     * Files a new PENDING claim after checking the business rules.
+     *
+     * <p>Only FOUND reports can be claimed: a LOST report describes an item its
+     * reporter is still looking for, so there is nothing to hand over. The item
+     * row is locked while the claim is inserted, which closes the race where two
+     * students claim the same item at the same moment.</p>
+     */
     public Claim submitClaim(Item item, User claimant, String proof) {
         if (item == null) {
             throw new ValidationException("Select an item to claim.");
@@ -57,25 +69,53 @@ public class ClaimService {
         if (claimant == null) {
             throw new ValidationException("You must be signed in to claim an item.");
         }
-        if (item.getReportedBy() != null
-                && item.getReportedBy().getUserId() == claimant.getUserId()) {
-            throw new ValidationException("You cannot claim an item that you reported yourself.");
-        }
-        if (item.getStatus() != ItemStatus.OPEN && item.getStatus() != ItemStatus.MATCHED) {
+        if (item.getItemType() != ItemType.FOUND) {
             throw new ValidationException(
-                    "This item is already claimed or recovered, so no new claim can be filed.");
+                    "Only found items can be claimed. This report describes a lost item.");
         }
-        if (proof == null || proof.trim().length() < 15) {
+        if (proof == null || proof.trim().length() < MIN_PROOF_LENGTH) {
             throw new ValidationException(
-                    "Describe the item in at least 15 characters (colour, marks, contents) "
+                    "Describe the item in at least " + MIN_PROOF_LENGTH
+                    + " characters (colour, marks, contents) "
                     + "so the staff can verify that it is yours.");
         }
-        if (claimDAO.existsFor(item.getItemId(), claimant.getUserId())) {
-            throw new ValidationException("You have already submitted a claim for this item.");
+        if (proof.trim().length() > MAX_PROOF_LENGTH) {
+            throw new ValidationException(
+                    "Keep the proof of ownership under " + MAX_PROOF_LENGTH + " characters.");
         }
 
-        Claim claim = new Claim(item, claimant, proof.trim());
-        claimDAO.insert(claim);
+        final String cleanedProof = proof.trim();
+        final Claim claim = new Claim(item, claimant, cleanedProof);
+
+        runInTransaction(new TransactionWork() {
+            @Override
+            public void execute(Connection connection) {
+                Item locked = itemDAO.findByIdForUpdate(connection, item.getItemId());
+                if (locked == null) {
+                    throw new ValidationException("This item report no longer exists.");
+                }
+                if (locked.getItemType() != ItemType.FOUND) {
+                    throw new ValidationException(
+                            "Only found items can be claimed. This report describes a lost item.");
+                }
+                if (locked.getReportedBy() != null
+                        && locked.getReportedBy().getUserId() == claimant.getUserId()) {
+                    throw new ValidationException(
+                            "You cannot claim an item that you reported yourself.");
+                }
+                if (locked.getStatus() != ItemStatus.OPEN
+                        && locked.getStatus() != ItemStatus.MATCHED) {
+                    throw new ValidationException(
+                            "This item is already claimed or recovered, so no new claim can be filed.");
+                }
+                if (claimDAO.existsActiveFor(connection, item.getItemId(),
+                        claimant.getUserId())) {
+                    throw new ValidationException(
+                            "You already have an active claim for this item.");
+                }
+                claimDAO.insert(connection, claim);
+            }
+        });
         return claim;
     }
 
@@ -94,15 +134,32 @@ public class ClaimService {
             throw new ValidationException("Only a pending claim can be approved.");
         }
 
-        final String note = isBlank(remarks) ? "Ownership verified by staff." : remarks.trim();
+        final String note = cleanRemarks(remarks, "Ownership verified by staff.");
         final int itemId = claim.getItem().getItemId();
 
         runInTransaction(new TransactionWork() {
             @Override
             public void execute(Connection connection) {
-                claimDAO.updateStatus(connection, claim.getClaimId(),
-                        ClaimStatus.APPROVED, verifier.getUserId(), note);
-                itemDAO.updateStatus(connection, itemId, ItemStatus.CLAIMED);
+                Item locked = itemDAO.findByIdForUpdate(connection, itemId);
+                if (locked == null) {
+                    throw new ValidationException("This item report no longer exists.");
+                }
+                if (locked.getStatus() != ItemStatus.OPEN
+                        && locked.getStatus() != ItemStatus.MATCHED) {
+                    throw new ValidationException(
+                            "This item is already claimed or recovered. Refresh the list.");
+                }
+                if (!claimDAO.updateStatus(connection, claim.getClaimId(),
+                        ClaimStatus.PENDING, ClaimStatus.APPROVED,
+                        verifier.getUserId(), note)) {
+                    throw new ValidationException(
+                            "This claim was already processed by somebody else. Refresh the list.");
+                }
+                if (!itemDAO.updateStatus(connection, itemId,
+                        locked.getStatus(), ItemStatus.CLAIMED)) {
+                    throw new ValidationException(
+                            "The item changed while the claim was being approved. Refresh the list.");
+                }
                 claimDAO.rejectOtherPending(connection, itemId, claim.getClaimId(),
                         verifier.getUserId(),
                         "Closed automatically: another claim was approved for this item.");
@@ -116,13 +173,17 @@ public class ClaimService {
         if (claim == null || claim.getStatus() != ClaimStatus.PENDING) {
             throw new ValidationException("Only a pending claim can be rejected.");
         }
-        final String note = isBlank(remarks) ? "Ownership could not be verified." : remarks.trim();
+        final String note = cleanRemarks(remarks, "Ownership could not be verified.");
 
         runInTransaction(new TransactionWork() {
             @Override
             public void execute(Connection connection) {
-                claimDAO.updateStatus(connection, claim.getClaimId(),
-                        ClaimStatus.REJECTED, verifier.getUserId(), note);
+                if (!claimDAO.updateStatus(connection, claim.getClaimId(),
+                        ClaimStatus.PENDING, ClaimStatus.REJECTED,
+                        verifier.getUserId(), note)) {
+                    throw new ValidationException(
+                            "This claim was already processed by somebody else. Refresh the list.");
+                }
             }
         });
     }
@@ -138,10 +199,25 @@ public class ClaimService {
         runInTransaction(new TransactionWork() {
             @Override
             public void execute(Connection connection) {
-                claimDAO.updateStatus(connection, claim.getClaimId(),
-                        ClaimStatus.RECOVERED, verifier.getUserId(),
-                        "Item handed over to the owner.");
-                itemDAO.updateStatus(connection, itemId, ItemStatus.RECOVERED);
+                Item locked = itemDAO.findByIdForUpdate(connection, itemId);
+                if (locked == null) {
+                    throw new ValidationException("This item report no longer exists.");
+                }
+                if (locked.getStatus() != ItemStatus.CLAIMED) {
+                    throw new ValidationException(
+                            "This item is not in the claimed state. Refresh the list.");
+                }
+                if (!claimDAO.updateStatus(connection, claim.getClaimId(),
+                        ClaimStatus.APPROVED, ClaimStatus.RECOVERED,
+                        verifier.getUserId(), "Item handed over to the owner.")) {
+                    throw new ValidationException(
+                            "This claim was already processed by somebody else. Refresh the list.");
+                }
+                if (!itemDAO.updateStatus(connection, itemId,
+                        ItemStatus.CLAIMED, ItemStatus.RECOVERED)) {
+                    throw new ValidationException(
+                            "The item changed while recovery was being recorded. Refresh the list.");
+                }
             }
         });
     }
@@ -175,20 +251,16 @@ public class ClaimService {
         } catch (SQLException ex) {
             rollbackQuietly(connection);
             throw new DataAccessException(
-                    "The claim could not be completed and was cancelled. " + ex.getMessage(), ex);
+                    "The claim could not be completed and was cancelled. "
+                    + "Please try again or contact the administrator.", ex);
         } catch (RuntimeException ex) {
             // Any DAO failure rolls the whole unit of work back.
             rollbackQuietly(connection);
             throw ex;
         } finally {
-            if (connection != null) {
-                try {
-                    connection.setAutoCommit(true);
-                } catch (SQLException ignored) {
-                    // Closing anyway.
-                }
-                DBConnection.closeQuietly(connection);
-            }
+            // Returning the connection to the pool resets auto-commit and rolls
+            // back anything that was not committed.
+            DBConnection.closeQuietly(connection);
         }
     }
 
@@ -207,6 +279,15 @@ public class ClaimService {
                 || (verifier.getRole() != Role.STAFF && verifier.getRole() != Role.ADMIN)) {
             throw new ValidationException("Only staff or an administrator can verify claims.");
         }
+    }
+
+    private String cleanRemarks(String remarks, String fallback) {
+        String cleaned = isBlank(remarks) ? fallback : remarks.trim();
+        if (cleaned.length() > MAX_REMARKS_LENGTH) {
+            throw new ValidationException(
+                    "Keep the remarks under " + MAX_REMARKS_LENGTH + " characters.");
+        }
+        return cleaned;
     }
 
     private boolean isBlank(String value) {

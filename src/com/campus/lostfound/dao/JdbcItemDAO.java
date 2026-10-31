@@ -101,8 +101,10 @@ public class JdbcItemDAO extends AbstractJdbcDAO<Item> implements ItemDAO {
                 parameters.add(filter.getReporterId());
             }
             if (filter.getKeyword() != null && !filter.getKeyword().trim().isEmpty()) {
-                sql.append("AND (i.title LIKE ? OR i.description LIKE ?) ");
-                String like = "%" + filter.getKeyword().trim() + "%";
+                // Escape LIKE wildcards so a user typing "%" or "_" searches for
+                // those characters instead of matching every row.
+                sql.append("AND (i.title LIKE ? ESCAPE '!' OR i.description LIKE ? ESCAPE '!') ");
+                String like = "%" + escapeLike(filter.getKeyword().trim()) + "%";
                 parameters.add(like);
                 parameters.add(like);
             }
@@ -236,6 +238,11 @@ public class JdbcItemDAO extends AbstractJdbcDAO<Item> implements ItemDAO {
         } catch (SQLException ex) {
             rollbackQuietly(connection);
             throw wrap("Could not save the item report", ex);
+        } catch (RuntimeException ex) {
+            // A DataAccessException from insertSubtypeRow() must never leave a
+            // half-written item behind.
+            rollbackQuietly(connection);
+            throw ex;
         } finally {
             closeTransaction(connection);
         }
@@ -274,6 +281,9 @@ public class JdbcItemDAO extends AbstractJdbcDAO<Item> implements ItemDAO {
         } catch (SQLException ex) {
             rollbackQuietly(connection);
             throw wrap("Could not update the item report", ex);
+        } catch (RuntimeException ex) {
+            rollbackQuietly(connection);
+            throw ex;
         } finally {
             closeTransaction(connection);
         }
@@ -294,11 +304,26 @@ public class JdbcItemDAO extends AbstractJdbcDAO<Item> implements ItemDAO {
     }
 
     @Override
-    public boolean updateStatus(Connection connection, int itemId, ItemStatus status) {
-        String sql = "UPDATE items SET status = ? WHERE item_id = ?";
+    public Item findByIdForUpdate(Connection connection, int itemId) {
+        String sql = BASE_SELECT + "WHERE i.item_id = ? FOR UPDATE";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setString(1, status.name());
+            statement.setInt(1, itemId);
+            try (ResultSet rs = statement.executeQuery()) {
+                return rs.next() ? mapRow(rs) : null;
+            }
+        } catch (SQLException ex) {
+            throw wrap("Could not lock the item report", ex);
+        }
+    }
+
+    @Override
+    public boolean updateStatus(Connection connection, int itemId,
+                                ItemStatus expectedStatus, ItemStatus newStatus) {
+        String sql = "UPDATE items SET status = ? WHERE item_id = ? AND status = ?";
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, newStatus.name());
             statement.setInt(2, itemId);
+            statement.setString(3, expectedStatus.name());
             return statement.executeUpdate() > 0;
         } catch (SQLException ex) {
             throw wrap("Could not change the item status", ex);
@@ -539,15 +564,20 @@ public class JdbcItemDAO extends AbstractJdbcDAO<Item> implements ItemDAO {
         }
     }
 
-    /** Restores auto-commit and closes the connection used for a transaction. */
+    /** Closes the connection used for a transaction without committing it. */
     private void closeTransaction(Connection connection) {
         if (connection != null) {
-            try {
-                connection.setAutoCommit(true);
-            } catch (SQLException ignored) {
-                // Closing next; nothing else to do.
-            }
+            // Do NOT set auto-commit back to true here: on an unchecked failure
+            // that would commit the partial transaction. The pool resets the
+            // connection (rolling back if needed) when it is returned.
             closeQuietly(connection);
         }
+    }
+
+    /** Escapes LIKE metacharacters so user input is matched literally. */
+    private static String escapeLike(String value) {
+        return value.replace("!", "!!")
+                    .replace("%", "!%")
+                    .replace("_", "!_");
     }
 }

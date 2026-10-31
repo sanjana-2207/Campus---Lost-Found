@@ -5,6 +5,7 @@ import com.campus.lostfound.model.MatchResult;
 import com.campus.lostfound.service.ClaimService;
 import com.campus.lostfound.service.ItemService;
 import com.campus.lostfound.service.MatchService;
+import com.campus.lostfound.util.Async;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
@@ -18,7 +19,6 @@ import javax.swing.JTable;
 import javax.swing.ListSelectionModel;
 import java.awt.BorderLayout;
 import java.awt.Component;
-import java.awt.Dimension;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
@@ -152,29 +152,29 @@ public class MatchesPanel extends JPanel implements Refreshable {
 
     @Override
     public void refreshData() {
-        List<MatchResult> results = matchService.findMatches();
+        Async.run(matchService::findMatches, results -> {
+            matches.clear();
+            matches.addAll(results);
 
-        matches.clear();
-        matches.addAll(results);
+            List<Object[]> rows = new ArrayList<Object[]>();
+            for (MatchResult match : results) {
+                rows.add(new Object[]{
+                        match.getScore(),
+                        match.getConfidence(),
+                        "#" + match.getLostItemId() + "  " + match.getLostTitle(),
+                        "#" + match.getFoundItemId() + "  " + match.getFoundTitle(),
+                        match.getCategoryName(),
+                        match.getLocationName(),
+                        match.getLostDate(),
+                        match.getFoundDate(),
+                        match.getDaysApart()});
+            }
+            tableModel.setRows(rows);
 
-        List<Object[]> rows = new ArrayList<Object[]>();
-        for (MatchResult match : results) {
-            rows.add(new Object[]{
-                    match.getScore(),
-                    match.getConfidence(),
-                    "#" + match.getLostItemId() + "  " + match.getLostTitle(),
-                    "#" + match.getFoundItemId() + "  " + match.getFoundTitle(),
-                    match.getCategoryName(),
-                    match.getLocationName(),
-                    match.getLostDate(),
-                    match.getFoundDate(),
-                    match.getDaysApart()});
-        }
-        tableModel.setRows(rows);
-
-        explanation.setText(results.isEmpty()
-                ? "No matches right now. Report more items or relax the filters."
-                : results.size() + " suggested matches. Select a row for the reason.");
+            explanation.setText(results.isEmpty()
+                    ? "No matches right now. Report more items or relax the filters."
+                    : results.size() + " suggested matches. Select a row for the reason.");
+        }, error -> Async.showError(this, error, "Could not load the matches"));
     }
 
     private void showExplanation() {
@@ -201,16 +201,18 @@ public class MatchesPanel extends JPanel implements Refreshable {
                     JOptionPane.INFORMATION_MESSAGE);
             return;
         }
-        Item foundItem = itemService.findById(match.getFoundItemId());
-        if (foundItem == null) {
-            JOptionPane.showMessageDialog(this,
-                    "That found report no longer exists.", "Not found",
-                    JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-        boolean claimed = ItemDetailDialog.open(this, foundItem, claimService);
-        if (claimed) {
-            refreshData();
-        }
+        final int foundItemId = match.getFoundItemId();
+        Async.run(() -> itemService.findById(foundItemId), foundItem -> {
+            if (foundItem == null) {
+                JOptionPane.showMessageDialog(this,
+                        "That found report no longer exists.", "Not found",
+                        JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            boolean claimed = ItemDetailDialog.open(this, foundItem, claimService);
+            if (claimed) {
+                refreshData();
+            }
+        }, error -> Async.showError(this, error, "Could not open the found report"));
     }
 }

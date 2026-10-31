@@ -1,13 +1,12 @@
 package com.campus.lostfound.ui;
 
-import com.campus.lostfound.model.Claim;
 import com.campus.lostfound.model.ClaimStatus;
 import com.campus.lostfound.model.Item;
 import com.campus.lostfound.model.ItemStatus;
 import com.campus.lostfound.service.ReportService;
 import com.campus.lostfound.service.ReportSummary;
+import com.campus.lostfound.util.Async;
 
-import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
@@ -20,11 +19,11 @@ import javax.swing.JTable;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.BorderLayout;
 import java.awt.Component;
-import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.GridLayout;
 import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -154,8 +153,8 @@ public class ReportsPanel extends JPanel implements Refreshable {
 
     @Override
     public void refreshData() {
-        try {
-            summary = reportService.buildSummary();
+        Async.run(reportService::buildSummary, loaded -> {
+            summary = loaded;
 
             totalValue.setText(String.valueOf(summary.getTotalItems()));
             recoveryValue.setText(String.format("%.1f%%", summary.getRecoveryRate()));
@@ -194,10 +193,7 @@ public class ReportsPanel extends JPanel implements Refreshable {
             }
             monthlyModel.setRows(months);
 
-        } catch (RuntimeException ex) {
-            JOptionPane.showMessageDialog(this, ex.getMessage(),
-                    "Could not build the report", JOptionPane.ERROR_MESSAGE);
-        }
+        }, error -> Async.showError(this, error, "Could not build the report"));
     }
 
     private int valueOrZero(Map<String, Integer> map, String key) {
@@ -211,22 +207,27 @@ public class ReportsPanel extends JPanel implements Refreshable {
 
     private void exportSummary() {
         if (summary == null) {
-            refreshData();
+            JOptionPane.showMessageDialog(this,
+                    "The report is still loading. Please wait a moment and try again.",
+                    "Export not ready", JOptionPane.WARNING_MESSAGE);
+            return;
         }
         File file = chooseFile("lost-and-found-summary.csv");
         if (file == null) {
             return;
         }
-        try {
-            reportService.exportSummary(file, summary);
-            JOptionPane.showMessageDialog(this,
-                    "Summary exported to:\n" + file.getAbsolutePath(),
-                    "Export complete", JOptionPane.INFORMATION_MESSAGE);
-        } catch (IOException ex) {
-            JOptionPane.showMessageDialog(this,
-                    "Could not write the file: " + ex.getMessage(),
-                    "Export failed", JOptionPane.ERROR_MESSAGE);
-        }
+        final ReportSummary snapshot = summary;
+        Async.run(() -> {
+            try {
+                reportService.exportSummary(file, snapshot);
+            } catch (IOException ex) {
+                throw new UncheckedIOException(ex);
+            }
+            return Boolean.TRUE;
+        }, ignored -> JOptionPane.showMessageDialog(this,
+                        "Summary exported to:\n" + file.getAbsolutePath(),
+                        "Export complete", JOptionPane.INFORMATION_MESSAGE),
+                error -> showExportError(error));
     }
 
     private void exportItems() {
@@ -234,19 +235,29 @@ public class ReportsPanel extends JPanel implements Refreshable {
         if (file == null) {
             return;
         }
-        try {
-            List<Item> items = reportService.allItems();
-            reportService.exportItems(file, items);
+        Async.run(() -> {
+            try {
+                List<Item> items = reportService.allItems();
+                reportService.exportItems(file, items);
+                return items.size();
+            } catch (IOException ex) {
+                throw new UncheckedIOException(ex);
+            }
+        }, count -> JOptionPane.showMessageDialog(this,
+                        count + " reports exported to:\n" + file.getAbsolutePath(),
+                        "Export complete", JOptionPane.INFORMATION_MESSAGE),
+                error -> showExportError(error));
+    }
+
+    private void showExportError(Throwable error) {
+        Throwable cause = error instanceof UncheckedIOException && error.getCause() != null
+                ? error.getCause() : error;
+        if (cause instanceof IOException) {
             JOptionPane.showMessageDialog(this,
-                    items.size() + " reports exported to:\n" + file.getAbsolutePath(),
-                    "Export complete", JOptionPane.INFORMATION_MESSAGE);
-        } catch (IOException ex) {
-            JOptionPane.showMessageDialog(this,
-                    "Could not write the file: " + ex.getMessage(),
+                    "Could not write the file: " + cause.getMessage(),
                     "Export failed", JOptionPane.ERROR_MESSAGE);
-        } catch (RuntimeException ex) {
-            JOptionPane.showMessageDialog(this, ex.getMessage(),
-                    "Could not read the reports", JOptionPane.ERROR_MESSAGE);
+        } else {
+            Async.showError(this, cause, "Could not export the reports");
         }
     }
 
@@ -263,11 +274,18 @@ public class ReportsPanel extends JPanel implements Refreshable {
         if (!selected.getName().toLowerCase().endsWith(".csv")) {
             selected = new File(selected.getParentFile(), selected.getName() + ".csv");
         }
-        // Touch the parent so a clear error appears before writing.
-        if (selected.getParentFile() != null && !selected.getParentFile().exists()) {
+        // Check the destination before starting a background write.
+        File parent = selected.getParentFile();
+        if (parent == null || !parent.exists() || !parent.canWrite()) {
             JOptionPane.showMessageDialog(this,
-                    "The selected folder does not exist.", "Export failed",
-                    JOptionPane.ERROR_MESSAGE);
+                    "The selected folder does not exist or is not writable.",
+                    "Export failed", JOptionPane.ERROR_MESSAGE);
+            return null;
+        }
+        if (selected.exists() && !selected.canWrite()) {
+            JOptionPane.showMessageDialog(this,
+                    "That file is read-only. Choose another name.",
+                    "Export failed", JOptionPane.ERROR_MESSAGE);
             return null;
         }
         return selected;

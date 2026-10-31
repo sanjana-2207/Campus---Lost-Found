@@ -8,6 +8,8 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Base class for all JDBC DAOs.
@@ -18,20 +20,29 @@ import java.util.List;
  */
 public abstract class AbstractJdbcDAO<T> implements GenericDAO<T> {
 
+    private static final Logger LOG = Logger.getLogger(AbstractJdbcDAO.class.getName());
+
     /** Opens a connection or fails with a user-friendly message. */
     protected Connection openConnection() {
         try {
             return DBConnection.getInstance().getConnection();
         } catch (SQLException ex) {
+            LOG.log(Level.SEVERE, "Could not open a database connection", ex);
             throw new DataAccessException(
                     "Cannot connect to MySQL. Check that the server is running and that "
                     + "db.properties has the correct user name and password.", ex);
         }
     }
 
-    /** Converts a checked {@link SQLException} into an unchecked application error. */
+    /**
+     * Converts a checked {@link SQLException} into an unchecked application
+     * error. The SQL detail is written to the log; the user only sees the
+     * action that failed, so table and column names never leak into the UI.
+     */
     protected DataAccessException wrap(String action, SQLException ex) {
-        return new DataAccessException(action + " (" + ex.getMessage() + ")", ex);
+        LOG.log(Level.SEVERE, action, ex);
+        return new DataAccessException(
+                action + ". Please try again or contact the administrator.", ex);
     }
 
     protected void rollbackQuietly(Connection connection) {

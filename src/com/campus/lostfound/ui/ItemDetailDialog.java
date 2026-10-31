@@ -3,12 +3,12 @@ package com.campus.lostfound.ui;
 import com.campus.lostfound.exception.ValidationException;
 import com.campus.lostfound.model.Item;
 import com.campus.lostfound.model.ItemStatus;
+import com.campus.lostfound.model.ItemType;
 import com.campus.lostfound.service.ClaimService;
 import com.campus.lostfound.util.SessionContext;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
-import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JDialog;
@@ -165,13 +165,21 @@ public class ItemDetailDialog extends JDialog {
         boolean ownItem = SessionContext.isLoggedIn()
                 && item.getReportedBy() != null
                 && item.getReportedBy().getUserId() == SessionContext.getCurrentUser().getUserId();
-        boolean claimable = (item.getStatus() == ItemStatus.OPEN
-                || item.getStatus() == ItemStatus.MATCHED) && !ownItem;
+        boolean foundItem = item.getItemType() == ItemType.FOUND;
+        boolean open = item.getStatus() == ItemStatus.OPEN
+                || item.getStatus() == ItemStatus.MATCHED;
+        boolean claimable = foundItem && open && !ownItem;
 
         if (!claimable) {
-            JLabel note = UIStyle.muted(ownItem
-                    ? "You reported this item, so you cannot claim it."
-                    : "This item is no longer open for claims.");
+            String reason;
+            if (ownItem) {
+                reason = "You reported this item, so you cannot claim it.";
+            } else if (!foundItem) {
+                reason = "This is a lost-item report, so there is nothing to claim here.";
+            } else {
+                reason = "This item is no longer open for claims.";
+            }
+            JLabel note = UIStyle.muted(reason);
             note.setBorder(BorderFactory.createEmptyBorder(12, 0, 0, 0));
             area.add(note, BorderLayout.NORTH);
             return area;

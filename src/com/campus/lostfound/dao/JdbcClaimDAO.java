@@ -94,11 +94,20 @@ public class JdbcClaimDAO extends AbstractJdbcDAO<Claim> implements ClaimDAO {
     }
 
     @Override
-    public boolean existsFor(int itemId, int claimantId) {
-        String sql = "SELECT COUNT(*) FROM claims WHERE item_id = ? AND claimant_id = ?";
-        try (Connection connection = openConnection();
-             PreparedStatement statement = connection.prepareStatement(sql)) {
+    public boolean existsActiveFor(int itemId, int claimantId) {
+        try (Connection connection = openConnection()) {
+            return existsActiveFor(connection, itemId, claimantId);
+        } catch (SQLException ex) {
+            throw wrap("Could not check the existing claim", ex);
+        }
+    }
 
+    @Override
+    public boolean existsActiveFor(Connection connection, int itemId, int claimantId) {
+        // Rejected claims are history: the claimant is allowed to try again.
+        String sql = "SELECT COUNT(*) FROM claims WHERE item_id = ? AND claimant_id = ? "
+                   + "AND status IN ('PENDING','APPROVED','RECOVERED')";
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setInt(1, itemId);
             statement.setInt(2, claimantId);
             try (ResultSet rs = statement.executeQuery()) {
@@ -111,10 +120,18 @@ public class JdbcClaimDAO extends AbstractJdbcDAO<Claim> implements ClaimDAO {
 
     @Override
     public int insert(Claim claim) {
+        try (Connection connection = openConnection()) {
+            return insert(connection, claim);
+        } catch (SQLException ex) {
+            throw wrap("Could not submit the claim", ex);
+        }
+    }
+
+    @Override
+    public int insert(Connection connection, Claim claim) {
         String sql = "INSERT INTO claims (item_id, claimant_id, proof, status) "
                    + "VALUES (?, ?, ?, ?)";
-        try (Connection connection = openConnection();
-             PreparedStatement statement =
+        try (PreparedStatement statement =
                      connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
 
             statement.setInt(1, claim.getItem().getItemId());
@@ -124,9 +141,10 @@ public class JdbcClaimDAO extends AbstractJdbcDAO<Claim> implements ClaimDAO {
             statement.executeUpdate();
 
             try (ResultSet keys = statement.getGeneratedKeys()) {
-                if (keys.next()) {
-                    claim.setClaimId(keys.getInt(1));
+                if (!keys.next()) {
+                    throw new SQLException("The database did not return a generated claim id");
                 }
+                claim.setClaimId(keys.getInt(1));
             }
             return claim.getClaimId();
 
@@ -151,18 +169,19 @@ public class JdbcClaimDAO extends AbstractJdbcDAO<Claim> implements ClaimDAO {
     }
 
     @Override
-    public boolean updateStatus(Connection connection, int claimId, ClaimStatus status,
+    public boolean updateStatus(Connection connection, int claimId,
+                                ClaimStatus expectedStatus, ClaimStatus newStatus,
                                 Integer verifierId, String remarks) {
         boolean withVerifier = verifierId != null;
         String sql = withVerifier
                 ? "UPDATE claims SET status = ?, verified_by = ?, verified_at = NOW(), "
-                  + "remarks = ? WHERE claim_id = ?"
+                  + "remarks = ? WHERE claim_id = ? AND status = ?"
                 : "UPDATE claims SET status = ?, verified_at = NOW(), remarks = ? "
-                  + "WHERE claim_id = ?";
+                  + "WHERE claim_id = ? AND status = ?";
 
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             int index = 1;
-            statement.setString(index++, status.name());
+            statement.setString(index++, newStatus.name());
             if (withVerifier) {
                 statement.setInt(index++, verifierId);
             }
@@ -171,7 +190,8 @@ public class JdbcClaimDAO extends AbstractJdbcDAO<Claim> implements ClaimDAO {
             } else {
                 statement.setString(index++, remarks);
             }
-            statement.setInt(index, claimId);
+            statement.setInt(index++, claimId);
+            statement.setString(index, expectedStatus.name());
             return statement.executeUpdate() > 0;
         } catch (SQLException ex) {
             throw wrap("Could not update the claim status", ex);

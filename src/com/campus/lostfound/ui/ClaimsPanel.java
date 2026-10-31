@@ -4,6 +4,7 @@ import com.campus.lostfound.exception.ValidationException;
 import com.campus.lostfound.model.Claim;
 import com.campus.lostfound.model.ClaimStatus;
 import com.campus.lostfound.service.ClaimService;
+import com.campus.lostfound.util.Async;
 import com.campus.lostfound.util.SessionContext;
 
 import javax.swing.BorderFactory;
@@ -37,7 +38,8 @@ public class ClaimsPanel extends JPanel implements Refreshable {
     private final ClaimService claimService;
 
     private final ListTableModel allModel = new ListTableModel(new String[]{
-            "ID", "Item", "Claimant", "Submitted", "Status", "Verified by", "Remarks"});
+            "ID", "Item", "Claimant", "Submitted", "Status", "Verified by",
+            "Proof of ownership", "Remarks"});
     private final ListTableModel myModel = new ListTableModel(new String[]{
             "ID", "Item", "Submitted", "Status", "Remarks", "Proof"});
 
@@ -122,8 +124,9 @@ public class ClaimsPanel extends JPanel implements Refreshable {
         allTable.getColumnModel().getColumn(3).setPreferredWidth(130);
         allTable.getColumnModel().getColumn(4).setPreferredWidth(95);
         allTable.getColumnModel().getColumn(4).setCellRenderer(new StatusCellRenderer());
-        allTable.getColumnModel().getColumn(5).setPreferredWidth(140);
-        allTable.getColumnModel().getColumn(6).setPreferredWidth(260);
+        allTable.getColumnModel().getColumn(5).setPreferredWidth(130);
+        allTable.getColumnModel().getColumn(6).setPreferredWidth(300);
+        allTable.getColumnModel().getColumn(7).setPreferredWidth(220);
 
         card.add(UIStyle.scroll(allTable), BorderLayout.CENTER);
 
@@ -179,48 +182,57 @@ public class ClaimsPanel extends JPanel implements Refreshable {
 
     @Override
     public void refreshData() {
-        try {
-            if (SessionContext.isVerifier()) {
-                allClaims.clear();
-                allClaims.addAll(claimService.allClaims());
+        final boolean verifier = SessionContext.isVerifier();
+        final boolean loggedIn = SessionContext.isLoggedIn();
+        final int userId = loggedIn ? SessionContext.getCurrentUser().getUserId() : 0;
 
-                List<Object[]> allRows = new ArrayList<Object[]>();
-                for (Claim claim : allClaims) {
-                    allRows.add(new Object[]{
-                            claim.getClaimId(),
-                            "#" + claim.getItem().getItemId() + "  " + claim.getItemTitle(),
-                            claim.getClaimantName(),
-                            claim.getSubmittedAt(),
-                            claim.getStatus().getLabel(),
-                            claim.getVerifierName(),
-                            claim.getRemarks()});
-                }
-                allModel.setRows(allRows);
-            }
+        Async.run(() -> new Snapshot(
+                        verifier ? claimService.allClaims() : new ArrayList<Claim>(),
+                        loggedIn ? claimService.claimsOf(userId) : new ArrayList<Claim>()),
+                snapshot -> {
+                    allClaims.clear();
+                    allClaims.addAll(snapshot.all);
+                    myClaims.clear();
+                    myClaims.addAll(snapshot.mine);
 
-            if (SessionContext.isLoggedIn()) {
-                myClaims.clear();
-                myClaims.addAll(claimService.claimsOf(
-                        SessionContext.getCurrentUser().getUserId()));
+                    List<Object[]> allRows = new ArrayList<Object[]>();
+                    for (Claim claim : allClaims) {
+                        allRows.add(new Object[]{
+                                claim.getClaimId(),
+                                "#" + claim.getItem().getItemId() + "  " + claim.getItemTitle(),
+                                claim.getClaimantName(),
+                                claim.getSubmittedAt(),
+                                claim.getStatus().getLabel(),
+                                claim.getVerifierName(),
+                                claim.getProof(),
+                                claim.getRemarks()});
+                    }
+                    allModel.setRows(allRows);
 
-                List<Object[]> myRows = new ArrayList<Object[]>();
-                for (Claim claim : myClaims) {
-                    myRows.add(new Object[]{
-                            claim.getClaimId(),
-                            "#" + claim.getItem().getItemId() + "  " + claim.getItemTitle(),
-                            claim.getSubmittedAt(),
-                            claim.getStatus().getLabel(),
-                            claim.getRemarks(),
-                            claim.getProof()});
-                }
-                myModel.setRows(myRows);
-            }
+                    List<Object[]> myRows = new ArrayList<Object[]>();
+                    for (Claim claim : myClaims) {
+                        myRows.add(new Object[]{
+                                claim.getClaimId(),
+                                "#" + claim.getItem().getItemId() + "  " + claim.getItemTitle(),
+                                claim.getSubmittedAt(),
+                                claim.getStatus().getLabel(),
+                                claim.getRemarks(),
+                                claim.getProof()});
+                    }
+                    myModel.setRows(myRows);
+                    updateButtons();
+                },
+                error -> Async.showError(this, error, "Could not load claims"));
+    }
 
-            updateButtons();
+    /** Immutable result of the two background queries. */
+    private static final class Snapshot {
+        private final List<Claim> all;
+        private final List<Claim> mine;
 
-        } catch (RuntimeException ex) {
-            JOptionPane.showMessageDialog(this, ex.getMessage(),
-                    "Could not load claims", JOptionPane.ERROR_MESSAGE);
+        private Snapshot(List<Claim> all, List<Claim> mine) {
+            this.all = all;
+            this.mine = mine;
         }
     }
 
@@ -263,28 +275,28 @@ public class ClaimsPanel extends JPanel implements Refreshable {
             return; // user cancelled
         }
 
-        try {
+        setActionsBusy(true);
+        Async.run(() -> {
             if (approve) {
                 claimService.approveClaim(claim, SessionContext.getCurrentUser(), remarks);
-                JOptionPane.showMessageDialog(this,
-                        "Claim approved. The item is now reserved for "
-                        + claim.getClaimantName() + ".",
-                        "Claim approved", JOptionPane.INFORMATION_MESSAGE);
             } else {
                 claimService.rejectClaim(claim, SessionContext.getCurrentUser(), remarks);
-                JOptionPane.showMessageDialog(this,
-                        "Claim rejected. The item stays available for other claimants.",
-                        "Claim rejected", JOptionPane.INFORMATION_MESSAGE);
             }
+            return Boolean.TRUE;
+        }, ignored -> {
+            setActionsBusy(false);
+            JOptionPane.showMessageDialog(this,
+                    approve
+                            ? "Claim approved. The item is now reserved for "
+                              + claim.getClaimantName() + "."
+                            : "Claim rejected. The item stays available for other claimants.",
+                    approve ? "Claim approved" : "Claim rejected",
+                    JOptionPane.INFORMATION_MESSAGE);
             refreshData();
-
-        } catch (ValidationException ex) {
-            JOptionPane.showMessageDialog(this, ex.getMessage(),
-                    "Not allowed", JOptionPane.WARNING_MESSAGE);
-        } catch (RuntimeException ex) {
-            JOptionPane.showMessageDialog(this, ex.getMessage(),
-                    "Transaction failed", JOptionPane.ERROR_MESSAGE);
-        }
+        }, error -> {
+            setActionsBusy(false);
+            showActionError(error);
+        });
     }
 
     private void markRecovered() {
@@ -302,19 +314,37 @@ public class ClaimsPanel extends JPanel implements Refreshable {
             return;
         }
 
-        try {
+        setActionsBusy(true);
+        Async.run(() -> {
             claimService.markRecovered(claim, SessionContext.getCurrentUser());
+            return Boolean.TRUE;
+        }, ignored -> {
+            setActionsBusy(false);
             JOptionPane.showMessageDialog(this,
                     "Item marked as recovered. The dashboard counters were updated.",
                     "Recovery recorded", JOptionPane.INFORMATION_MESSAGE);
             refreshData();
+        }, error -> {
+            setActionsBusy(false);
+            showActionError(error);
+        });
+    }
 
-        } catch (ValidationException ex) {
-            JOptionPane.showMessageDialog(this, ex.getMessage(),
+    private void setActionsBusy(boolean busy) {
+        approveButton.setEnabled(!busy);
+        rejectButton.setEnabled(!busy);
+        recoverButton.setEnabled(!busy);
+        if (!busy) {
+            updateButtons();
+        }
+    }
+
+    private void showActionError(Throwable error) {
+        if (error instanceof ValidationException) {
+            JOptionPane.showMessageDialog(this, error.getMessage(),
                     "Not allowed", JOptionPane.WARNING_MESSAGE);
-        } catch (RuntimeException ex) {
-            JOptionPane.showMessageDialog(this, ex.getMessage(),
-                    "Transaction failed", JOptionPane.ERROR_MESSAGE);
+        } else {
+            Async.showError(this, error, "Transaction failed");
         }
     }
 }

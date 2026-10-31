@@ -19,15 +19,27 @@ public interface ClaimDAO extends GenericDAO<Claim> {
     /** Claims submitted by one user. */
     List<Claim> findByClaimant(int claimantId);
 
-    /** True when this user already has a claim on this item. */
-    boolean existsFor(int itemId, int claimantId);
+    /**
+     * True when this user already has an <em>active</em> claim on this item.
+     * Rejected claims do not block a fresh claim.
+     */
+    boolean existsActiveFor(int itemId, int claimantId);
+
+    /** Transaction-aware variant used while the item row is locked. */
+    boolean existsActiveFor(Connection connection, int itemId, int claimantId);
+
+    /** Inserts a claim inside a caller-managed transaction. */
+    int insert(Connection connection, Claim claim);
 
     /**
-     * Updates the claim status inside a transaction owned by the caller.
-     * A null verifier keeps the previous verifier columns untouched.
+     * Updates the claim status inside a transaction owned by the caller, but
+     * only when the row still has {@code expectedStatus}. A zero return value
+     * means somebody else changed the claim first (optimistic lock).
+     *
+     * <p>A null verifier keeps the previous verifier columns untouched.</p>
      */
-    boolean updateStatus(Connection connection, int claimId, ClaimStatus status,
-                         Integer verifierId, String remarks);
+    boolean updateStatus(Connection connection, int claimId, ClaimStatus expectedStatus,
+                         ClaimStatus newStatus, Integer verifierId, String remarks);
 
     /**
      * Rejects every other PENDING claim on the same item. Called after one claim

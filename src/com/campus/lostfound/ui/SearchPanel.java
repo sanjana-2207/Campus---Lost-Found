@@ -8,8 +8,8 @@ import com.campus.lostfound.model.ItemType;
 import com.campus.lostfound.model.Location;
 import com.campus.lostfound.service.ClaimService;
 import com.campus.lostfound.service.ItemService;
+import com.campus.lostfound.util.Async;
 
-import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
@@ -23,7 +23,6 @@ import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
 import java.awt.BorderLayout;
 import java.awt.Component;
-import java.awt.Dimension;
 import java.awt.GridLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -65,6 +64,7 @@ public class SearchPanel extends JPanel implements Refreshable {
     private final List<Item> currentItems = new ArrayList<Item>();
 
     private boolean lookupsLoaded;
+    private boolean loading;
 
     public SearchPanel(ItemService itemService, ClaimService claimService) {
         this.itemService = itemService;
@@ -232,88 +232,119 @@ public class SearchPanel extends JPanel implements Refreshable {
 
     @Override
     public void refreshData() {
-        loadLookups();
-        runSearch();
-    }
-
-    private void loadLookups() {
-        if (lookupsLoaded) {
+        if (loading) {
             return;
         }
-        try {
-            List<Category> categories = itemService.categories();
-            List<Location> locations = itemService.locations();
+        loading = true;
+        final ItemFilter filter = buildFilter();
 
-            categoryBox.removeAllItems();
-            categoryIds.clear();
-            categoryBox.addItem("All categories");
-            for (Category category : categories) {
-                categoryBox.addItem(category.getName());
-                categoryIds.put(category.getName(), category.getCategoryId());
-            }
+        Async.run(() -> new LookupSnapshot(
+                        lookupsLoaded ? null : itemService.categories(),
+                        lookupsLoaded ? null : itemService.locations(),
+                        itemService.search(filter)),
+                snapshot -> {
+                    loading = false;
+                    if (snapshot.categories != null && snapshot.locations != null) {
+                        applyLookups(snapshot.categories, snapshot.locations);
+                    }
+                    applyItems(snapshot.items);
+                },
+                error -> {
+                    loading = false;
+                    Async.showError(this, error, "Could not load the reports");
+                });
+    }
 
-            locationBox.removeAllItems();
-            locationIds.clear();
-            locationBox.addItem("All locations");
-            for (Location location : locations) {
-                locationBox.addItem(location.getName());
-                locationIds.put(location.getName(), location.getLocationId());
-            }
-
-            lookupsLoaded = true;
-        } catch (RuntimeException ex) {
-            JOptionPane.showMessageDialog(this, ex.getMessage(),
-                    "Could not load filters", JOptionPane.ERROR_MESSAGE);
+    private void applyLookups(List<Category> categories, List<Location> locations) {
+        categoryBox.removeAllItems();
+        categoryIds.clear();
+        categoryBox.addItem("All categories");
+        for (Category category : categories) {
+            categoryBox.addItem(category.getName());
+            categoryIds.put(category.getName(), category.getCategoryId());
         }
+
+        locationBox.removeAllItems();
+        locationIds.clear();
+        locationBox.addItem("All locations");
+        for (Location location : locations) {
+            locationBox.addItem(location.getName());
+            locationIds.put(location.getName(), location.getLocationId());
+        }
+        lookupsLoaded = true;
     }
 
     private void runSearch() {
-        try {
-            ItemFilter filter = new ItemFilter()
-                    .setKeyword(keywordField.getText());
+        if (loading) {
+            return;
+        }
+        loading = true;
+        final ItemFilter filter = buildFilter();
 
-            String category = (String) categoryBox.getSelectedItem();
-            if (category != null && categoryIds.containsKey(category)) {
-                filter.setCategoryId(categoryIds.get(category));
-            }
-            String location = (String) locationBox.getSelectedItem();
-            if (location != null && locationIds.containsKey(location)) {
-                filter.setLocationId(locationIds.get(location));
-            }
-            if ("Lost".equals(typeBox.getSelectedItem())) {
-                filter.setItemType(ItemType.LOST);
-            } else if ("Found".equals(typeBox.getSelectedItem())) {
-                filter.setItemType(ItemType.FOUND);
-            }
-            String status = (String) statusBox.getSelectedItem();
-            if (status != null && statusValues.containsKey(status)) {
-                filter.setStatus(statusValues.get(status));
-            }
+        Async.run(() -> itemService.search(filter), items -> {
+            loading = false;
+            applyItems(items);
+        }, error -> {
+            loading = false;
+            Async.showError(this, error, "Search failed");
+        });
+    }
 
-            List<Item> items = itemService.search(filter);
+    private ItemFilter buildFilter() {
+        ItemFilter filter = new ItemFilter().setKeyword(keywordField.getText());
 
-            currentItems.clear();
-            currentItems.addAll(items);
+        String category = (String) categoryBox.getSelectedItem();
+        if (category != null && categoryIds.containsKey(category)) {
+            filter.setCategoryId(categoryIds.get(category));
+        }
+        String location = (String) locationBox.getSelectedItem();
+        if (location != null && locationIds.containsKey(location)) {
+            filter.setLocationId(locationIds.get(location));
+        }
+        if ("Lost".equals(typeBox.getSelectedItem())) {
+            filter.setItemType(ItemType.LOST);
+        } else if ("Found".equals(typeBox.getSelectedItem())) {
+            filter.setItemType(ItemType.FOUND);
+        }
+        String status = (String) statusBox.getSelectedItem();
+        if (status != null && statusValues.containsKey(status)) {
+            filter.setStatus(statusValues.get(status));
+        }
+        return filter;
+    }
 
-            List<Object[]> rows = new ArrayList<Object[]>();
-            for (Item item : items) {
-                rows.add(new Object[]{
-                        item.getItemId(),
-                        item.getItemType().getLabel(),
-                        item.getTitle(),
-                        item.getCategoryName(),
-                        item.getLocationName(),
-                        item.getEventDate(),
-                        item.getStatus().getLabel(),
-                        item.getReporterName()});
-            }
-            tableModel.setRows(rows);
-            resultLabel.setText(items.size() + (items.size() == 1 ? " report" : " reports")
-                    + " found");
+    private void applyItems(List<Item> items) {
+        currentItems.clear();
+        currentItems.addAll(items);
 
-        } catch (RuntimeException ex) {
-            JOptionPane.showMessageDialog(this, ex.getMessage(),
-                    "Search failed", JOptionPane.ERROR_MESSAGE);
+        List<Object[]> rows = new ArrayList<Object[]>();
+        for (Item item : items) {
+            rows.add(new Object[]{
+                    item.getItemId(),
+                    item.getItemType().getLabel(),
+                    item.getTitle(),
+                    item.getCategoryName(),
+                    item.getLocationName(),
+                    item.getEventDate(),
+                    item.getStatus().getLabel(),
+                    item.getReporterName()});
+        }
+        tableModel.setRows(rows);
+        resultLabel.setText(items.size() + (items.size() == 1 ? " report" : " reports")
+                + " found");
+    }
+
+    /** Background result: lookups are null when they were already loaded. */
+    private static final class LookupSnapshot {
+        private final List<Category> categories;
+        private final List<Location> locations;
+        private final List<Item> items;
+
+        private LookupSnapshot(List<Category> categories, List<Location> locations,
+                               List<Item> items) {
+            this.categories = categories;
+            this.locations = locations;
+            this.items = items;
         }
     }
 

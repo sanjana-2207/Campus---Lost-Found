@@ -25,6 +25,13 @@ import java.util.List;
  */
 public class ItemService {
 
+    private static final int MAX_TITLE_LENGTH = 120;
+    private static final int MAX_DESCRIPTION_LENGTH = 5000;
+    private static final int MAX_CONTACT_LENGTH = 80;
+    private static final int MAX_STORAGE_LENGTH = 120;
+    private static final int MAX_NOTES_LENGTH = 255;
+    private static final BigDecimal MAX_REWARD = new BigDecimal("999999.99");
+
     private final ItemDAO itemDAO;
     private final LookupDAO lookupDAO;
 
@@ -82,9 +89,17 @@ public class ItemService {
         if (isBlank(item.getTitle()) || item.getTitle().trim().length() < 4) {
             throw new ValidationException("Give the item a short title (at least 4 characters).");
         }
+        if (item.getTitle().trim().length() > MAX_TITLE_LENGTH) {
+            throw new ValidationException(
+                    "Keep the title under " + MAX_TITLE_LENGTH + " characters.");
+        }
         if (isBlank(item.getDescription()) || item.getDescription().trim().length() < 10) {
             throw new ValidationException(
                     "Describe the item in at least 10 characters so it can be identified.");
+        }
+        if (item.getDescription().trim().length() > MAX_DESCRIPTION_LENGTH) {
+            throw new ValidationException(
+                    "Keep the description under " + MAX_DESCRIPTION_LENGTH + " characters.");
         }
         if (item.getCategory() == null) {
             throw new ValidationException("Select a category.");
@@ -107,9 +122,18 @@ public class ItemService {
             if (isBlank(lost.getContact())) {
                 throw new ValidationException("Add a contact number or e-mail so finders can reach you.");
             }
+            if (lost.getContact().trim().length() > MAX_CONTACT_LENGTH) {
+                throw new ValidationException(
+                        "Keep the contact details under " + MAX_CONTACT_LENGTH + " characters.");
+            }
             if (lost.getRewardOffered() != null
                     && lost.getRewardOffered().compareTo(BigDecimal.ZERO) < 0) {
                 throw new ValidationException("The reward amount cannot be negative.");
+            }
+            if (lost.getRewardOffered() != null
+                    && lost.getRewardOffered().compareTo(MAX_REWARD) > 0) {
+                throw new ValidationException(
+                        "The reward amount cannot exceed " + MAX_REWARD + ".");
             }
         } else if (item instanceof FoundItem) {
             FoundItem found = (FoundItem) item;
@@ -117,11 +141,30 @@ public class ItemService {
                 throw new ValidationException(
                         "Tell the owner where the item is kept (for example: Security office).");
             }
+            if (found.getStorageLocation().trim().length() > MAX_STORAGE_LENGTH) {
+                throw new ValidationException(
+                        "Keep the storage location under " + MAX_STORAGE_LENGTH + " characters.");
+            }
+            if (found.getFinderNotes() != null
+                    && found.getFinderNotes().trim().length() > MAX_NOTES_LENGTH) {
+                throw new ValidationException(
+                        "Keep the finder notes under " + MAX_NOTES_LENGTH + " characters.");
+            }
         }
 
         // Normalise the text once, so the database never stores stray spaces.
         item.setTitle(item.getTitle().trim());
         item.setDescription(item.getDescription().trim());
+        if (item instanceof LostItem) {
+            LostItem lost = (LostItem) item;
+            lost.setContact(lost.getContact().trim());
+        } else if (item instanceof FoundItem) {
+            FoundItem found = (FoundItem) item;
+            found.setStorageLocation(found.getStorageLocation().trim());
+            if (found.getFinderNotes() != null) {
+                found.setFinderNotes(found.getFinderNotes().trim());
+            }
+        }
     }
 
     private boolean isBlank(String value) {

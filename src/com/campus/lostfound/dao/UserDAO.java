@@ -13,5 +13,8 @@ public interface UserDAO extends GenericDAO<User> {
     /** True when the e-mail is already registered. */
     boolean emailExists(String email);
 
+    /** Replaces the stored password hash after a successful legacy login. */
+    boolean updatePasswordHash(int userId, String passwordHash);
+
     List<User> findAllByRole(String roleName);
 }

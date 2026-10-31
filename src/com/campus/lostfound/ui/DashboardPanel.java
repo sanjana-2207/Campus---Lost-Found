@@ -4,8 +4,8 @@ import com.campus.lostfound.model.Item;
 import com.campus.lostfound.service.ItemService;
 import com.campus.lostfound.service.ReportService;
 import com.campus.lostfound.service.ReportSummary;
+import com.campus.lostfound.util.Async;
 
-import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JComponent;
@@ -14,9 +14,7 @@ import javax.swing.JPanel;
 import javax.swing.JTable;
 import javax.swing.SwingConstants;
 import java.awt.BorderLayout;
-import java.awt.Color;
 import java.awt.Component;
-import java.awt.Dimension;
 import java.awt.GridLayout;
 import java.util.ArrayList;
 import java.util.List;
@@ -130,27 +128,41 @@ public class DashboardPanel extends JPanel implements Refreshable {
 
     @Override
     public void refreshData() {
-        ReportSummary summary = reportService.buildSummary();
+        Async.run(() -> new Snapshot(reportService.buildSummary(), itemService.recent(10)),
+                snapshot -> {
+                    ReportSummary summary = snapshot.summary;
+                    lostValue.setText(String.valueOf(summary.getTotalLost()));
+                    foundValue.setText(String.valueOf(summary.getTotalFound()));
+                    pendingValue.setText(String.valueOf(summary.getPendingClaims()));
+                    recoveredValue.setText(String.valueOf(summary.getTotalRecovered()));
+                    rateLabel.setText(String.format("Recovery rate %.1f%%  ·  %d open items",
+                            summary.getRecoveryRate(), summary.getTotalOpen()));
 
-        lostValue.setText(String.valueOf(summary.getTotalLost()));
-        foundValue.setText(String.valueOf(summary.getTotalFound()));
-        pendingValue.setText(String.valueOf(summary.getPendingClaims()));
-        recoveredValue.setText(String.valueOf(summary.getTotalRecovered()));
-        rateLabel.setText(String.format("Recovery rate %.1f%%  ·  %d open items",
-                summary.getRecoveryRate(), summary.getTotalOpen()));
+                    List<Object[]> rows = new ArrayList<Object[]>();
+                    for (Item item : snapshot.recent) {
+                        rows.add(new Object[]{
+                                item.getItemId(),
+                                item.getItemType().getLabel(),
+                                item.getTitle(),
+                                item.getCategoryName(),
+                                item.getLocationName(),
+                                item.getEventDate(),
+                                item.getStatus().getLabel(),
+                                item.getReporterName()});
+                    }
+                    tableModel.setRows(rows);
+                },
+                error -> Async.showError(this, error, "Could not load the dashboard"));
+    }
 
-        List<Object[]> rows = new ArrayList<Object[]>();
-        for (Item item : itemService.recent(10)) {
-            rows.add(new Object[]{
-                    item.getItemId(),
-                    item.getItemType().getLabel(),
-                    item.getTitle(),
-                    item.getCategoryName(),
-                    item.getLocationName(),
-                    item.getEventDate(),
-                    item.getStatus().getLabel(),
-                    item.getReporterName()});
+    /** Immutable result of the two background queries. */
+    private static final class Snapshot {
+        private final ReportSummary summary;
+        private final List<Item> recent;
+
+        private Snapshot(ReportSummary summary, List<Item> recent) {
+            this.summary = summary;
+            this.recent = recent;
         }
-        tableModel.setRows(rows);
     }
 }

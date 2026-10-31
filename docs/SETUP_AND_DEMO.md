@@ -115,6 +115,11 @@ Common edits:
 
 Double-click **`compile.bat`**, then **`run.bat`**.
 
+`run.bat` checks port 3306 first and starts the local MySQL server itself (by
+calling `start-database.bat`) when the server is not running, so there is no
+separate "start the database" step. If MySQL cannot be started, `run.bat` stops
+with a clear message instead of letting the app fail with a connection dialog.
+
 Or manually:
 
 ```bat
@@ -258,7 +263,7 @@ Rehearse this once end-to-end. It is ordered so each step sets up the next.
 | `No suitable driver found` | jar missing from `lib/` | copy `mysql-connector-j-*.jar` into `lib/` |
 | `Unknown database 'campus_lost_found'` | schema not imported | run `database/schema.sql` |
 | `Access denied for user 'root'` | wrong password | update `resources/db.properties` |
-| `Communications link failure` | MySQL service stopped | start MySQL / XAMPP |
+| `Communications link failure` | MySQL is stopped | `run.bat` starts it automatically; if that fails run `start-database.bat` |
 | `Public Key Retrieval is not allowed` | old JDBC URL | keep `allowPublicKeyRetrieval=true` |
 | `The server time zone value ... is unrecognized` | missing timezone | keep `serverTimezone=UTC` |
 | Login window never appears | startup exception | run `run.bat` from a terminal to see the message |

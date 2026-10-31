@@ -25,8 +25,19 @@ public interface ItemDAO extends GenericDAO<Item> {
     /** Standalone status change (own transaction). */
     boolean updateStatus(int itemId, ItemStatus status);
 
-    /** Status change inside a caller-managed transaction (claim workflow). */
-    boolean updateStatus(Connection connection, int itemId, ItemStatus status);
+    /**
+     * Locks one item row for the duration of a caller-managed transaction.
+     * Returns {@code null} when the item no longer exists.
+     */
+    Item findByIdForUpdate(Connection connection, int itemId);
+
+    /**
+     * Status change inside a caller-managed transaction, guarded by the status
+     * the caller read earlier. A zero return value means the item changed
+     * underneath the workflow (optimistic lock).
+     */
+    boolean updateStatus(Connection connection, int itemId, ItemStatus expectedStatus,
+                         ItemStatus newStatus);
 
     /** Dashboard counters, every status present (zero when empty). */
     Map<ItemStatus, Integer> countByStatus();

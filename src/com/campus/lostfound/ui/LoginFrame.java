@@ -4,13 +4,13 @@ import com.campus.lostfound.exception.ValidationException;
 import com.campus.lostfound.model.Role;
 import com.campus.lostfound.model.User;
 import com.campus.lostfound.service.AuthService;
+import com.campus.lostfound.util.Async;
 import com.campus.lostfound.util.SessionContext;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
-import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -59,7 +59,6 @@ public class LoginFrame extends JFrame {
     private JTextField registerPhone;
     private JPasswordField registerPassword;
     private JPasswordField registerConfirm;
-    private JComboBox<Role> registerRole;
     private JLabel registerMessage;
 
     public LoginFrame() {
@@ -203,20 +202,12 @@ public class LoginFrame extends JFrame {
         card.add(passwordRow);
         card.add(Box.createVerticalStrut(10));
 
-        JPanel roleRow = new JPanel(new GridLayout(1, 2, 12, 0));
-        roleRow.setOpaque(false);
-        roleRow.setAlignmentX(Component.LEFT_ALIGNMENT);
-        roleRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 58));
-
-        registerRole = UIStyle.comboBox();
-        registerRole.addItem(Role.STUDENT);
-        registerRole.addItem(Role.STAFF);
-        roleRow.add(field("Account type", registerRole));
-
-        JPanel spacer = new JPanel();
-        spacer.setOpaque(false);
-        roleRow.add(spacer);
-        card.add(roleRow);
+        JLabel roleNote = new JLabel("<html><b>Student account.</b> Staff accounts are "
+                + "issued by the lost-and-found desk.</html>");
+        roleNote.setFont(UIStyle.FONT_SMALL);
+        roleNote.setForeground(UIStyle.MUTED);
+        roleNote.setAlignmentX(Component.LEFT_ALIGNMENT);
+        card.add(roleNote);
         card.add(Box.createVerticalStrut(10));
 
         registerMessage = messageLabel();
@@ -297,36 +288,37 @@ public class LoginFrame extends JFrame {
     // ==================================================================
 
     private void doLogin() {
-        loginMessage.setText(" ");
-        try {
-            User user = authService.login(loginEmail.getText(),
-                    new String(loginPassword.getPassword()));
+        loginMessage.setText("Signing in...");
+        final String email = loginEmail.getText();
+        final String password = new String(loginPassword.getPassword());
 
+        Async.run(() -> authService.login(email, password), user -> {
+            loginMessage.setText(" ");
             SessionContext.login(user);
             MainFrame mainFrame = new MainFrame();
             mainFrame.setVisible(true);
             dispose();
-
-        } catch (ValidationException ex) {
-            loginMessage.setText(ex.getMessage());
-        } catch (RuntimeException ex) {
-            JOptionPane.showMessageDialog(this, ex.getMessage(),
-                    "Connection problem", JOptionPane.ERROR_MESSAGE);
-        }
+        }, error -> {
+            if (error instanceof ValidationException) {
+                loginMessage.setText(error.getMessage());
+            } else {
+                loginMessage.setText(" ");
+                Async.showError(this, error, "Connection problem");
+            }
+        });
     }
 
     private void doRegister() {
-        registerMessage.setText(" ");
-        try {
-            Role role = (Role) registerRole.getSelectedItem();
-            User user = authService.register(
-                    registerName.getText(),
-                    registerEmail.getText(),
-                    registerPhone.getText(),
-                    new String(registerPassword.getPassword()),
-                    new String(registerConfirm.getPassword()),
-                    role);
+        registerMessage.setText("Creating account...");
+        final String name = registerName.getText();
+        final String email = registerEmail.getText();
+        final String phone = registerPhone.getText();
+        final String password = new String(registerPassword.getPassword());
+        final String confirm = new String(registerConfirm.getPassword());
 
+        Async.run(() -> authService.register(name, email, phone, password, confirm,
+                Role.STUDENT), user -> {
+            registerMessage.setText(" ");
             loginEmail.setText(user.getEmail());
             loginPassword.setText("");
             loginMessage.setText(" ");
@@ -335,13 +327,14 @@ public class LoginFrame extends JFrame {
             JOptionPane.showMessageDialog(this,
                     "Account created. You can now sign in with your e-mail and password.",
                     "Registration successful", JOptionPane.INFORMATION_MESSAGE);
-
-        } catch (ValidationException ex) {
-            registerMessage.setText(ex.getMessage());
-        } catch (RuntimeException ex) {
-            JOptionPane.showMessageDialog(this, ex.getMessage(),
-                    "Connection problem", JOptionPane.ERROR_MESSAGE);
-        }
+        }, error -> {
+            if (error instanceof ValidationException) {
+                registerMessage.setText(error.getMessage());
+            } else {
+                registerMessage.setText(" ");
+                Async.showError(this, error, "Connection problem");
+            }
+        });
     }
 
     // ==================================================================
