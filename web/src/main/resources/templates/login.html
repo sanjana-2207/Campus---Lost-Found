@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Sign In')}"></head>
+<body>
+<div class="auth-page">
+    <section class="auth-left">
+        <div class="auth-left-content">
+            <span class="auth-mark">🎓 REC Lost &amp; Found</span>
+            <h1>Welcome Back to<br><span>REC Lost &amp; Found</span></h1>
+            <p>Sign in to find your lost items, report found belongings and help your campus community.</p>
+
+            <div class="benefit"><span>🔍</span> Find your lost items</div>
+            <div class="benefit"><span>📦</span> Report found items</div>
+            <div class="benefit"><span>🤝</span> Connect with your campus</div>
+
+            <div class="auth-left-footer">REC Lost &amp; Found</div>
+        </div>
+    </section>
+
+    <section class="auth-right">
+        <div class="auth-card">
+            <span class="auth-logo">REC Lost &amp; Found</span>
+            <h2>Sign In</h2>
+            <p class="muted">Login to your REC Lost &amp; Found account.</p>
+
+            <div th:replace="~{fragments/alerts :: alerts}"></div>
+
+            <form th:action="@{/login}" method="post" class="form-stack">
+                <label class="field">
+                    <span>E-mail address</span>
+                    <input type="email" name="username" placeholder="Enter your registered email" required autocomplete="email">
+                </label>
+                <label class="field">
+                    <span>Password</span>
+                    <input type="password" name="password" placeholder="Enter your password" required autocomplete="current-password">
+                </label>
+                <button type="submit" class="btn btn-primary btn-block">Sign In</button>
+            </form>
+
+            <p class="auth-switch">New here? <a th:href="@{/register}">Create an account</a></p>
+            <p class="demo-hint">
+                <strong>Demo accounts</strong><br>
+                Student: arjun@campus.edu / student123<br>
+                Staff: security@campus.edu / staff123<br>
+                Admin: admin@campus.edu / admin123
+            </p>
+        </div>
+    </section>
+</div>
+<script th:src="@{/js/app.js}"></script>
+</body>
+</html>

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${item.title})}"></head>
+<body>
+<div th:replace="~{fragments/topbar :: topbar}"></div>
+
+<main class="page">
+    <header class="page-head">
+        <h1 th:text="${item.title}">Item title</h1>
+        <p><span class="badge badge-lost" th:text="${item.typeLabel.toUpperCase()}">LOST</span>
+            <span class="badge badge-status" th:text="${item.statusLabel}">Open</span></p>
+        <a th:replace="~{fragments/back :: back}"></a>
+    </header>
+
+    <div th:replace="~{fragments/alerts :: alerts}"></div>
+
+    <div class="detail-grid">
+        <div class="card detail-photo">
+            <img th:if="${item.hasPhoto}" th:src="@{/items/{id}/photo(id=${item.id})}"
+                 th:alt="${item.title}">
+            <div th:unless="${item.hasPhoto}" class="photo-placeholder large">&#128269;</div>
+        </div>
+
+        <div class="card detail-body">
+            <h2>Lost item details</h2>
+            <dl class="detail-list">
+                <dt>Category</dt><dd th:text="${item.categoryName}">Category</dd>
+                <dt>Last seen at</dt><dd th:text="${item.locationName}">Location</dd>
+                <dt>Date lost</dt><dd th:text="${item.eventDateLabel}">01-01-2026</dd>
+                <dt>Reported at</dt><dd th:text="${item.createdAtLabel}">01-01-2026, 10:00 am</dd>
+                <dt>Reported by</dt><dd th:text="${item.reporterName}">Reporter</dd>
+                <dt th:if="${item.contactInfo != null and !item.contactInfo.isBlank()}">Contact</dt>
+                <dd th:if="${item.contactInfo != null and !item.contactInfo.isBlank()}"
+                    th:text="${item.contactInfo}">Contact details</dd>
+                <dt th:if="${item.reward != null and !item.reward.isBlank()}">Reward</dt>
+                <dd th:if="${item.reward != null and !item.reward.isBlank()}"
+                    th:text="${item.reward}">Reward note</dd>
+            </dl>
+
+            <h3>Description</h3>
+            <p class="description" th:text="${item.description}">Description</p>
+        </div>
+    </div>
+
+    <section class="card note-card" th:if="${ownItem}">
+        <p>This is your report. You can track all your reports from <a th:href="@{/my-reports}">My reports</a>.</p>
+    </section>
+
+    <section class="card note-card" th:unless="${ownItem}">
+        <p>Found this item? <a th:href="@{/report-found}">Report it as found</a> and hand it to the security office so the owner can collect it.</p>
+        <p th:if="${item.contactInfo != null and !item.contactInfo.isBlank()}" class="muted">
+            The owner can be reached at <span th:text="${item.contactInfo}">contact</span>.
+        </p>
+    </section>
+</main>
+
+<script th:src="@{/js/app.js}"></script>
+</body>
+</html>

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Report Found Item')}"></head>
+<body>
+<div th:replace="~{fragments/topbar :: topbar}"></div>
+
+<main class="page">
+    <header class="page-head">
+        <h1>Report a found item</h1>
+        <p>Describe the item you found and where you are keeping it.</p>
+        <a th:replace="~{fragments/back :: back}"></a>
+    </header>
+
+    <div th:replace="~{fragments/alerts :: alerts}"></div>
+
+    <form th:action="@{/report-found}" method="post" enctype="multipart/form-data" class="card form-card">
+        <label class="field">
+            <span>Item title *</span>
+            <input type="text" name="title" th:value="${title}" required
+                   placeholder="For example: Black Dell laptop charger">
+        </label>
+
+        <div class="form-row">
+            <label class="field">
+                <span>Category *</span>
+                <select name="categoryId" required>
+                    <option value="">Select category</option>
+                    <option th:each="category : ${categories}"
+                            th:value="${category.id}" th:text="${category.name}"
+                            th:selected="${categoryId != null and categoryId == category.id}"></option>
+                </select>
+            </label>
+            <label class="field">
+                <span>Location *</span>
+                <select name="locationId" required>
+                    <option value="">Select location</option>
+                    <option th:each="location : ${locations}"
+                            th:value="${location.id}" th:text="${location.name}"
+                            th:selected="${locationId != null and locationId == location.id}"></option>
+                </select>
+            </label>
+        </div>
+
+        <div class="form-row">
+            <label class="field">
+                <span>Date of incident *</span>
+                <input type="text" name="eventDate" th:value="${eventDate != null ? eventDate : today}"
+                       placeholder="dd-MM-yyyy" required>
+            </label>
+            <label class="field field-check">
+                <span>Handover</span>
+                <label class="check-row">
+                    <input type="checkbox" name="handedToSecurity" value="true"
+                           th:checked="${handedToSecurity == null or handedToSecurity}">
+                    Handed over to the security office
+                </label>
+            </label>
+        </div>
+
+        <div class="form-row">
+            <label class="field">
+                <span>Where is the item kept? *</span>
+                <input type="text" name="storageLocation" th:value="${storageLocation}"
+                       required placeholder="For example: Security office">
+            </label>
+            <label class="field">
+                <span>Finder notes (optional)</span>
+                <input type="text" name="finderNotes" th:value="${finderNotes}"
+                       placeholder="Any extra detail for the owner">
+            </label>
+        </div>
+
+        <label class="field">
+            <span>Description * - colour, brand, marks, contents</span>
+            <textarea name="description" rows="4" required
+                      th:text="${description}"
+                      placeholder="Describe the item clearly so the owner can identify it."></textarea>
+        </label>
+
+        <div class="photo-field">
+            <div>
+                <span class="field-label">Photo (optional)</span>
+                <div class="photo-preview" id="photoPreview">
+                    <span>No photo selected</span>
+                </div>
+            </div>
+            <div class="photo-actions">
+                <label class="btn btn-secondary">
+                    Choose photo
+                    <input type="file" name="photo" id="photoInput" accept="image/*" hidden>
+                </label>
+                <button type="button" class="btn btn-secondary" id="clearPhoto">Remove photo</button>
+                <p class="muted small">JPG, PNG, GIF or WebP - up to 8 MB</p>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Submit report</button>
+            <a th:href="@{/dashboard}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</main>
+
+<script th:src="@{/js/app.js}"></script>
+</body>
+</html>

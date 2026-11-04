@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Create Account')}"></head>
+<body>
+<div class="auth-page">
+    <section class="auth-left">
+        <div class="auth-left-content">
+            <span class="auth-mark">🎓 REC Lost &amp; Found</span>
+            <h1>Join the<br><span>Campus Community</span></h1>
+            <p>Create an account to report found belongings, search for items and help owners recover what matters.</p>
+
+            <div class="benefit"><span>📦</span> Report found items</div>
+            <div class="benefit"><span>🔍</span> Search claimable items</div>
+            <div class="benefit"><span>🤝</span> Confirm safe handovers</div>
+
+            <div class="auth-left-footer">REC Lost &amp; Found</div>
+        </div>
+    </section>
+
+    <section class="auth-right">
+        <div class="auth-card">
+            <span class="auth-logo">REC Lost &amp; Found</span>
+            <h2>Create Account</h2>
+            <p class="muted">One account for reporting, searching and claiming.</p>
+
+            <div th:replace="~{fragments/alerts :: alerts}"></div>
+
+            <form th:action="@{/register}" method="post" class="form-stack">
+                <label class="field">
+                    <span>Full name</span>
+                    <input type="text" name="fullName" th:value="${fullName}" placeholder="Your full name" required>
+                </label>
+                <label class="field">
+                    <span>E-mail address</span>
+                    <input type="email" name="email" th:value="${email}" placeholder="you@campus.edu" required>
+                </label>
+                <label class="field">
+                    <span>Phone number</span>
+                    <input type="text" name="phone" th:value="${phone}" placeholder="10-digit mobile number" required>
+                </label>
+                <div class="form-row">
+                    <label class="field">
+                        <span>Password</span>
+                        <input type="password" name="password" placeholder="At least 6 characters" required>
+                    </label>
+                    <label class="field">
+                        <span>Confirm password</span>
+                        <input type="password" name="confirm" placeholder="Repeat password" required>
+                    </label>
+                </div>
+                <p class="muted small"><strong>Student account.</strong> Staff accounts are issued by the lost-and-found desk.</p>
+                <button type="submit" class="btn btn-primary btn-block">Create Account</button>
+            </form>
+
+            <p class="auth-switch">Already have an account? <a th:href="@{/login}">Sign in</a></p>
+        </div>
+    </section>
+</div>
+<script th:src="@{/js/app.js}"></script>
+</body>
+</html>

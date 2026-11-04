@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="alerts">
+    <div th:if="${message}" class="alert alert-success" th:text="${message}"></div>
+    <div th:if="${error}" class="alert alert-error" th:text="${error}"></div>
+    <div th:if="${param.error}" class="alert alert-error">
+        Invalid e-mail or password.
+    </div>
+    <div th:if="${param.logout}" class="alert alert-success">
+        You have been signed out.
+    </div>
+    <div th:if="${param.registered}" class="alert alert-success">
+        Account created. You can sign in now.
+    </div>
+</div>
+</body>
+</html>

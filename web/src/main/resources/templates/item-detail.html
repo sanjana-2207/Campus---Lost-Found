@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${item.title})}"></head>
+<body>
+<div th:replace="~{fragments/topbar :: topbar}"></div>
+
+<main class="page">
+    <header class="page-head">
+        <h1 th:text="${item.title}">Item title</h1>
+        <p><span class="badge badge-found" th:text="${item.typeLabel.toUpperCase()}">FOUND</span>
+            <span class="badge badge-status" th:text="${item.statusLabel}">Open</span></p>
+        <a th:replace="~{fragments/back :: back}"></a>
+    </header>
+
+    <div th:replace="~{fragments/alerts :: alerts}"></div>
+
+    <div class="detail-grid">
+        <div class="card detail-photo">
+            <img th:if="${item.hasPhoto}" th:src="@{/items/{id}/photo(id=${item.id})}"
+                 th:alt="${item.title}">
+            <div th:unless="${item.hasPhoto}" class="photo-placeholder large">📦</div>
+        </div>
+
+        <div class="card detail-body">
+            <h2>Item details</h2>
+            <dl class="detail-list">
+                <dt>Category</dt><dd th:text="${item.categoryName}">Category</dd>
+                <dt>Location</dt><dd th:text="${item.locationName}">Location</dd>
+                <dt>Date of incident</dt><dd th:text="${item.eventDateLabel}">01-01-2026</dd>
+                <dt>Reported at</dt><dd th:text="${item.createdAtLabel}">01-01-2026, 10:00 am</dd>
+                <dt>Reported by</dt><dd th:text="${item.reporterName}">Reporter</dd>
+                <dt th:if="${item.storageLocation != null}">Kept at</dt>
+                <dd th:if="${item.storageLocation != null}" th:text="${item.storageLocation}">Storage</dd>
+                <dt th:if="${item.finderNotes != null and !item.finderNotes.isBlank()}">Finder notes</dt>
+                <dd th:if="${item.finderNotes != null and !item.finderNotes.isBlank()}" th:text="${item.finderNotes}">Notes</dd>
+            </dl>
+
+            <h3>Description</h3>
+            <p class="description" th:text="${item.description}">Description</p>
+        </div>
+    </div>
+
+    <section class="card claim-card" th:if="${claimable}">
+        <h2>Is this yours?</h2>
+        <p class="muted">Describe the item in detail - colour, marks, contents and when you lost it.</p>
+        <form th:action="@{/found-items/{id}/claim(id=${item.id})}" method="post" class="form-stack">
+            <label class="field">
+                <span>Proof of ownership *</span>
+                <textarea name="proof" rows="4" required
+                          placeholder="Mention colour, marks, contents or anything only the owner knows."></textarea>
+            </label>
+            <button type="submit" class="btn btn-primary">Submit ownership claim</button>
+        </form>
+    </section>
+
+    <section class="card note-card" th:if="${!claimable}">
+        <p th:if="${ownItem}">You reported this item, so you cannot claim it.</p>
+        <p th:unless="${ownItem}">This item is no longer open for claims.</p>
+    </section>
+</main>
+
+<script th:src="@{/js/app.js}"></script>
+</body>
+</html>

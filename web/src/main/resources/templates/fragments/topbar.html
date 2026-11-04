@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<header th:fragment="topbar" class="topbar">
+    <div class="topbar-inner">
+        <a th:href="@{/dashboard}" class="brand">
+            <span class="brand-name">REC Lost &amp; Found</span>
+            <span class="brand-tag">Campus lost &amp; found</span>
+        </a>
+
+        <form th:action="@{/found-items}" method="get" class="top-search">
+            <span class="top-search-icon">🔍</span>
+            <input type="text" name="keyword" placeholder="Search found items...">
+        </form>
+
+        <div class="top-actions" th:if="${currentUser != null}">
+            <button type="button" id="themeToggle" class="btn btn-secondary btn-small"
+                    title="Switch between light and dark theme">Dark</button>
+
+            <a th:href="@{/notifications}" class="icon-button" title="Notifications">
+                🔔
+                <span class="badge" th:if="${notificationCount > 0}"
+                      th:text="${notificationCount > 99 ? '99+' : notificationCount}">0</span>
+            </a>
+
+            <div class="avatar" th:text="${currentUser.initial}">A</div>
+            <div class="user-meta">
+                <strong th:text="${currentUser.fullName}">User</strong>
+                <span th:text="${currentUser.role.label}">Student</span>
+            </div>
+
+            <a th:href="@{/dashboard}" class="btn btn-secondary btn-small">Home</a>
+            <a th:href="@{/my-reports}" class="btn btn-secondary btn-small">My reports</a>
+            <a th:href="@{/settings}" class="btn btn-secondary btn-small">Settings</a>
+            <form th:action="@{/logout}" method="post" class="inline-form">
+                <button type="submit" class="btn btn-secondary btn-small">Logout</button>
+            </form>
+        </div>
+    </div>
+</header>
+</body>
+</html>

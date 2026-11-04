@@ -1,4 +1,27 @@
-# Campus Lost & Found Management System
+# REC Lost & Found
+
+## Web app (deployed version)
+
+The active deployable app is the **Spring Boot + Thymeleaf** version in
+[`web/`](web/). It uses an in-memory H2 database with seeded demo data and is
+ready for Render. Students can report lost and found items, browse and filter
+both lists, submit ownership claims, follow claim handovers and export reports.
+
+- Local run: `cd web` then `mvn spring-boot:run` (or build with `mvn package`)
+- Deploy: use the root [`render.yaml`](render.yaml) as a Render Blueprint. It
+  builds the root [`Dockerfile`](Dockerfile), runs the Spring Boot app and uses
+  `/health` as the health check. You can also create a Docker Web Service with
+  root directory `web` and the [`web/Dockerfile`](web/Dockerfile).
+- Demo accounts: `arjun@campus.edu / student123`, `security@campus.edu / staff123`,
+  `admin@campus.edu / admin123`
+- Data resets when the app restarts because the demo database is in-memory
+- The H2 web console is disabled by default on deployments. Run locally with
+  `H2_CONSOLE=true` if you need to inspect the database.
+
+The original Java Swing desktop version is kept below as legacy reference.
+
+---
+
 
 A desktop application that gives a college campus one place to report, search, match
 and recover lost belongings. Built with **Java + Swing + JDBC + MySQL** for a
@@ -14,11 +37,11 @@ DBMS/OOPS mini project review.
 | Feature | How it works |
 |---|---|
 | Report lost / found items | Type-specific form (lost: contact + reward + urgency, found: storage + handover) |
-| Search and filter | Keyword, category, location, report type, status - all executed in SQL |
-| Match suggestions | SQL view pairs lost and found reports and scores them out of 100 |
+| Search and filter | Keyword, category, location, report type, status, date - all executed in SQL |
 | Ownership claims | Claimant submits proof; staff verify; competing claims auto-close |
 | Recovery tracking | OPEN → MATCHED → CLAIMED → RECOVERED, with an audit trail |
 | Reports & analytics | Category, status, monthly trend, recovery rate, CSV export |
+| Account settings | Edit name, e-mail, phone, gender; change password; log out |
 | Roles | STUDENT, STAFF, ADMIN - only staff/admin may verify claims |
 
 ---
@@ -53,7 +76,7 @@ REC - Find & Lost/
 ├── database/
 │   └── schema.sql                 Tables, keys, views, triggers, seed data
 ├── docs/
-│   ├── PPT_SLIDES.md              30-slide deck: content + speaker notes
+│   ├── PPT_SLIDES.md              29-slide deck: content + speaker notes
 │   ├── DIAGRAMS.md                ER, class, architecture, sequence diagrams
 │   ├── VIVA_QA.md                 70 viva questions with answers
 │   └── SETUP_AND_DEMO.md          Install, run, demo script, troubleshooting
@@ -114,6 +137,8 @@ Reviewers usually ask "show me where you used X". Use this table.
 | **Abstraction** | `abstract class Item` with abstract `getItemType()` / `getSpecificDetails()`; `GenericDAO<T>` and service interfaces hide JDBC |
 | **Inheritance** | `LostItem extends Item`, `FoundItem extends Item`; every `Jdbc*DAO extends AbstractJdbcDAO<T> implements XxxDAO` |
 | **Polymorphism** | `List<Item>` renders mixed lost/found rows; `item.getSpecificDetails()` resolves at runtime; services accept DAO interfaces (constructor injection) |
+| **Interface** | `GenericDAO<T>`, `ItemDAO`, `ClaimDAO`, `UserDAO`, `LookupDAO` are pure contracts; UI screens implement `Refreshable`; services depend only on interfaces |
+| **Exceptional handling** | Custom `ValidationException` / `DataAccessException` thrown in services and DAOs, caught in the UI (`ReportItemPanel`, `ItemDetailDialog`, `MainFrame`); try-with-resources closes every connection |
 | **Association** | `Claim` holds an `Item` and two `User` references; `Item` holds `Category` and `Location` |
 | **Composition** | `MainFrame` owns the service objects; `ItemDetailDialog` owns its claim form |
 | **Enums** | `ItemType`, `ItemStatus`, `ClaimStatus`, `Role`, `Urgency` - type-safe constants stored as MySQL `ENUM` |
@@ -156,12 +181,12 @@ Reviewers usually ask "show me where you used X". Use this table.
 | Screen | Purpose |
 |---|---|
 | Login / Register | Authentication and account creation |
-| Dashboard | Live counters, recovery rate, ten most recent reports |
+| Dashboard | Quick-action cards, live counters, recovery rate |
 | Report an item | Dynamic lost/found form |
 | Search and claim | Filtered table + item detail dialog + claim submission |
-| Match suggestions | Scored lost↔found pairs with a plain-English explanation |
 | Ownership claims | Staff verification: approve, reject, mark recovered |
 | Reports | Category/status/monthly analytics + CSV export |
+| Settings | Profile edit, change password, logout (FINDIT-style cards) |
 
 ---
 
@@ -169,7 +194,7 @@ Reviewers usually ask "show me where you used X". Use this table.
 
 | File | Use it for |
 |---|---|
-| [`docs/PPT_SLIDES.md`](docs/PPT_SLIDES.md) | 30 slides with exact text, visual suggestions, speaker notes and timings |
+| [`docs/PPT_SLIDES.md`](docs/PPT_SLIDES.md) | 29 slides with exact text, visual suggestions, speaker notes and timings |
 | [`docs/DIAGRAMS.md`](docs/DIAGRAMS.md) | ER, class, architecture, DFD, use-case and sequence diagrams to redraw |
 | [`docs/VIVA_QA.md`](docs/VIVA_QA.md) | 85 likely questions with model answers |
 | [`docs/SETUP_AND_DEMO.md`](docs/SETUP_AND_DEMO.md) | Installation, demo script, test cases, troubleshooting |

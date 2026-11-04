@@ -1,0 +1,9 @@
+.git
+.gitignore
+out
+out2
+docs
+uploads
+web/target
+**/*.class
+*.log

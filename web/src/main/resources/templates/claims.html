@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Claims & Handovers')}"></head>
+<body>
+<div th:replace="~{fragments/topbar :: topbar}"></div>
+
+<main class="page">
+    <header class="page-head">
+        <h1>Claims &amp; Handovers</h1>
+        <p>Track your claims, verify owners and confirm item handovers.</p>
+        <a th:replace="~{fragments/back :: back}"></a>
+    </header>
+
+    <div th:replace="~{fragments/alerts :: alerts}"></div>
+
+    <nav class="tabs">
+        <a th:href="@{/claims(tab='mine')}" class="tab"
+           th:classappend="${tab == 'mine'} ? ' active' : ''">My claims</a>
+        <a th:href="@{/claims(tab='reported')}" class="tab"
+           th:classappend="${tab == 'reported'} ? ' active' : ''">My reported items</a>
+        <a th:if="${isVerifier}" th:href="@{/claims(tab='all')}" class="tab"
+           th:classappend="${tab == 'all'} ? ' active' : ''">All claims</a>
+    </nav>
+
+    <section th:if="${tab == 'mine'}" class="card table-card">
+        <h2>My claims</h2>
+        <p class="muted">A claim stays pending until staff verify your proof of ownership.</p>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                <tr><th>ID</th><th>Item</th><th>Submitted</th><th>Status</th><th>Remarks</th><th>Proof</th></tr>
+                </thead>
+                <tbody>
+                <tr th:each="claim : ${myClaims}">
+                    <td th:text="${claim.id}">1</td>
+                    <td th:text="${'#' + claim.item.id + '  ' + claim.item.title}">#1 Item</td>
+                    <td th:text="${claim.submittedLabel}">01-01-2026</td>
+                    <td><span class="status-pill" th:text="${claim.statusLabel}">Pending</span></td>
+                    <td th:text="${claim.remarks != null and !claim.remarks.isBlank() ? claim.remarks : '-'}">-</td>
+                    <td class="small" th:text="${claim.proof}">Proof</td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(myClaims)}">
+                    <td colspan="6" class="empty-row">You have not submitted any claims yet.</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section th:if="${tab == 'reported'}" class="card table-card">
+        <h2>Claims on items I reported</h2>
+        <p class="muted">After staff approve a claim, confirm the physical handover here. The item then leaves Found Items and stays in Reports.</p>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                <tr><th>ID</th><th>Item</th><th>Claimant</th><th>Submitted</th><th>Status</th><th>Remarks</th><th>Action</th></tr>
+                </thead>
+                <tbody>
+                <tr th:each="claim : ${reportedClaims}">
+                    <td th:text="${claim.id}">1</td>
+                    <td th:text="${'#' + claim.item.id + '  ' + claim.item.title}">#1 Item</td>
+                    <td th:text="${claim.claimantName}">Claimant</td>
+                    <td th:text="${claim.submittedLabel}">01-01-2026</td>
+                    <td><span class="status-pill" th:text="${claim.statusLabel}">Approved</span></td>
+                    <td th:text="${claim.remarks != null and !claim.remarks.isBlank() ? claim.remarks : '-'}">-</td>
+                    <td>
+                        <form th:if="${claim.status.name() == 'APPROVED'}"
+                              th:action="@{/claims/{id}/confirm(id=${claim.id})}" method="post"
+                              onsubmit="return confirm('Confirm that you handed this item over to the owner?');">
+                            <button type="submit" class="btn btn-success btn-small">Confirm handover</button>
+                        </form>
+                        <span th:unless="${claim.status.name() == 'APPROVED'}" class="muted small">—</span>
+                    </td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(reportedClaims)}">
+                    <td colspan="7" class="empty-row">No claims on items you reported yet.</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section th:if="${isVerifier and tab == 'all'}" class="card table-card">
+        <h2>All claims</h2>
+        <p class="muted">Approve verifies the owner and reserves the item. The finder confirms the final handover.</p>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                <tr><th>ID</th><th>Item</th><th>Claimant</th><th>Submitted</th><th>Status</th><th>Proof</th><th>Actions</th></tr>
+                </thead>
+                <tbody>
+                <tr th:each="claim : ${allClaims}">
+                    <td th:text="${claim.id}">1</td>
+                    <td th:text="${'#' + claim.item.id + '  ' + claim.item.title}">#1 Item</td>
+                    <td th:text="${claim.claimantName}">Claimant</td>
+                    <td th:text="${claim.submittedLabel}">01-01-2026</td>
+                    <td><span class="status-pill" th:text="${claim.statusLabel}">Pending</span></td>
+                    <td class="small" th:text="${claim.proof}">Proof</td>
+                    <td class="actions-cell">
+                        <div th:if="${claim.status.name() == 'PENDING'}" class="inline-actions">
+                            <form th:action="@{/claims/{id}/approve(id=${claim.id})}" method="post">
+                                <button type="submit" class="btn btn-success btn-small">Approve</button>
+                            </form>
+                            <form th:action="@{/claims/{id}/reject(id=${claim.id})}" method="post">
+                                <button type="submit" class="btn btn-danger btn-small">Reject</button>
+                            </form>
+                        </div>
+                        <span th:unless="${claim.status.name() == 'PENDING'}" class="muted small">—</span>
+                    </td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(allClaims)}">
+                    <td colspan="7" class="empty-row">No claims yet.</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</main>
+
+<script th:src="@{/js/app.js}"></script>
+</body>
+</html>

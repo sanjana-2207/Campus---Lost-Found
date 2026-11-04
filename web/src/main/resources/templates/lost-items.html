@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Lost Items')}"></head>
+<body>
+<div th:replace="~{fragments/topbar :: topbar}"></div>
+
+<main class="page">
+    <header class="page-head">
+        <h1>Lost Items</h1>
+        <p>Browse lost reports from around campus. If you found one of these items, contact the owner or hand it to the security office.</p>
+        <a th:replace="~{fragments/back :: back}"></a>
+    </header>
+
+    <div th:replace="~{fragments/alerts :: alerts}"></div>
+
+    <form th:action="@{/lost-items}" method="get" class="card filter-card">
+        <label class="field field-wide">
+            <span>Search by keyword (title or description)</span>
+            <input type="text" name="keyword" th:value="${keyword}" placeholder="e.g. charger, bottle, ID card">
+        </label>
+
+        <div class="filter-row">
+            <label class="field">
+                <span>Category</span>
+                <select name="categoryId">
+                    <option value="">All categories</option>
+                    <option th:each="category : ${categories}"
+                            th:value="${category.id}" th:text="${category.name}"
+                            th:selected="${categoryId != null and categoryId == category.id}"></option>
+                </select>
+            </label>
+            <label class="field">
+                <span>Location</span>
+                <select name="locationId">
+                    <option value="">All locations</option>
+                    <option th:each="location : ${locations}"
+                            th:value="${location.id}" th:text="${location.name}"
+                            th:selected="${locationId != null and locationId == location.id}"></option>
+                </select>
+            </label>
+        </div>
+
+        <div class="filter-row">
+            <label class="field">
+                <span>Date</span>
+                <input type="text" name="date" th:value="${date}" placeholder="dd-MM-yyyy">
+            </label>
+            <label class="field">
+                <span>Date mode</span>
+                <select name="dateMode">
+                    <option value="any" th:selected="${dateMode == 'any'}">Any date</option>
+                    <option value="on" th:selected="${dateMode == 'on'}">On</option>
+                    <option value="before" th:selected="${dateMode == 'before'}">Before</option>
+                    <option value="after" th:selected="${dateMode == 'after'}">After</option>
+                </select>
+            </label>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Search</button>
+            <a th:href="@{/lost-items}" class="btn btn-secondary">Reset</a>
+            <a th:href="@{/report-lost}" class="btn btn-secondary">Report a lost item</a>
+        </div>
+    </form>
+
+    <div class="results-head">
+        <h2>Results</h2>
+        <span class="muted" th:text="${#lists.size(items)} + ' lost reports'">0 lost reports</span>
+    </div>
+
+    <div class="item-grid" th:if="${!#lists.isEmpty(items)}">
+        <article class="item-card" th:each="item : ${items}">
+            <div class="item-photo">
+                <img th:if="${item.hasPhoto}" th:src="@{/items/{id}/photo(id=${item.id})}"
+                     th:alt="${item.title}">
+                <span th:unless="${item.hasPhoto}" class="photo-placeholder">&#128269;</span>
+            </div>
+            <div class="item-body">
+                <div class="item-top">
+                    <span class="badge badge-lost">LOST</span>
+                    <span class="badge badge-status" th:text="${item.statusLabel}">Open</span>
+                </div>
+                <h3 th:text="${item.title}">Item title</h3>
+                <p class="muted" th:text="${item.description}">Description</p>
+                <div class="item-meta">
+                    <span>&#128193; <span th:text="${item.categoryName}">Category</span></span>
+                    <span>&#128205; <span th:text="${item.locationName}">Location</span></span>
+                    <span>&#128197; <span th:text="${item.eventDateLabel}">Date</span></span>
+                </div>
+                <div class="item-footer">
+                    <span class="muted small">Reported by <span th:text="${item.reporterName}">Reporter</span></span>
+                    <a th:href="@{/lost-items/{id}(id=${item.id})}" class="btn btn-primary btn-small">View details</a>
+                </div>
+            </div>
+        </article>
+    </div>
+
+    <div class="card empty-state" th:if="${#lists.isEmpty(items)}">
+        <span>&#128269;</span>
+        <h3>No lost items found</h3>
+        <p>Try a different keyword, category or date range.</p>
+    </div>
+</main>
+
+<script th:src="@{/js/app.js}"></script>
+</body>
+</html>

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Notifications')}"></head>
+<body>
+<div th:replace="~{fragments/topbar :: topbar}"></div>
+
+<main class="page">
+    <header class="page-head">
+        <h1>Notifications</h1>
+        <p>Claim updates and handovers that need your attention.</p>
+        <a th:replace="~{fragments/back :: back}"></a>
+    </header>
+
+    <div th:replace="~{fragments/alerts :: alerts}"></div>
+
+    <div class="notification-list" th:if="${!#lists.isEmpty(notifications)}">
+        <article class="card notification-card" th:each="n : ${notifications}">
+            <div class="notification-dot" th:classappend="${'status-' + #strings.toLowerCase(n.status)}">●</div>
+            <div class="notification-body">
+                <h3 th:text="${n.title}">Notification</h3>
+                <p th:text="${n.message}">Message</p>
+                <span class="muted small" th:text="${n.timeLabel}">01-01-2026, 10:00 am</span>
+            </div>
+            <span class="status-pill" th:classappend="${'status-' + #strings.toLowerCase(n.status)}"
+                  th:text="${n.status}">Pending</span>
+        </article>
+    </div>
+
+    <div class="card empty-state" th:if="${#lists.isEmpty(notifications)}">
+        <span>🔔</span>
+        <h3>You're all caught up</h3>
+        <p>New claim activity will appear here.</p>
+    </div>
+</main>
+
+<script th:src="@{/js/app.js}"></script>
+</body>
+</html>
