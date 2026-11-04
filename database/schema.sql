@@ -30,6 +30,8 @@ CREATE TABLE users (
     full_name     VARCHAR(80)  NOT NULL,
     email         VARCHAR(120) NOT NULL,
     phone         VARCHAR(15)  NOT NULL,
+    gender        VARCHAR(20)  NULL,                     -- settings screen (Male/Female/Other/...)
+    student_id    VARCHAR(30)  NULL,                     -- read-only on the settings screen
     password_hash VARCHAR(255) NOT NULL,          -- PBKDF2 (legacy SHA-256 still accepted)
     role          ENUM('STUDENT','STAFF','ADMIN') NOT NULL DEFAULT 'STUDENT',
     created_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -48,7 +50,7 @@ CREATE TABLE categories (
 ) ENGINE = InnoDB;
 
 -- ============================================================================
---  3. LOCATIONS  -  lookup table (Library, Canteen, CS Block, ...)
+--  3. LOCATIONS  -  lookup table (campus spots: blocks, cafes, hostels, ...)
 -- ============================================================================
 CREATE TABLE locations (
     location_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -298,16 +300,16 @@ ORDER BY match_score DESC, days_apart ASC;
 -- ============================================================================
 
 -- -- Users ---------------------------------------------------------------
-INSERT INTO users (full_name, email, phone, password_hash, role) VALUES
-('Dr. Ramesh Kumar', 'admin@campus.edu',    '9840010001',
+INSERT INTO users (full_name, email, phone, student_id, password_hash, role) VALUES
+('Dr. Ramesh Kumar', 'admin@campus.edu',    '9840010001', 'STU0001',
  'pbkdf2$PBKDF2WithHmacSHA256$120000$xGaeTQPTzyIkFIbQx2O1CA==$osWCzh48qS5HhrnYY9Oa4WOqtGXioDT6NPs5Y8EWWhU=', 'ADMIN'),
-('Suresh Babu',      'security@campus.edu', '9840010002',
+('Suresh Babu',      'security@campus.edu', '9840010002', 'STU0002',
  'pbkdf2$PBKDF2WithHmacSHA256$120000$0+ugTqXvJYqCdtXvKe4Byw==$Z1xN37Nas/p0KiP2GCCfLOJM3XJ/u7b2YhECVv/vPM0=', 'STAFF'),
-('Arjun Mehta',      'arjun@campus.edu',    '9840010003',
+('Arjun Mehta',      'arjun@campus.edu',    '9840010003', 'STU0003',
  'pbkdf2$PBKDF2WithHmacSHA256$120000$d+pFHtuvetqchy2tFj9UkQ==$AZwXAoFfKA2+lSoLR3XAOVNEsLioruY1X4zqGH/4xi8=', 'STUDENT'),
-('Priya Nair',       'priya@campus.edu',    '9840010004',
+('Priya Nair',       'priya@campus.edu',    '9840010004', 'STU0004',
  'pbkdf2$PBKDF2WithHmacSHA256$120000$d+pFHtuvetqchy2tFj9UkQ==$AZwXAoFfKA2+lSoLR3XAOVNEsLioruY1X4zqGH/4xi8=', 'STUDENT'),
-('Karthik Rao',      'karthik@campus.edu',  '9840010005',
+('Karthik Rao',      'karthik@campus.edu',  '9840010005', 'STU0005',
  'pbkdf2$PBKDF2WithHmacSHA256$120000$d+pFHtuvetqchy2tFj9UkQ==$AZwXAoFfKA2+lSoLR3XAOVNEsLioruY1X4zqGH/4xi8=', 'STUDENT');
 
 -- -- Categories ----------------------------------------------------------
@@ -324,14 +326,21 @@ INSERT INTO categories (name, description) VALUES
 
 -- -- Locations -----------------------------------------------------------
 INSERT INTO locations (name, building) VALUES
-('Library',        'Central Library'),
-('Canteen',        'Student Centre'),
-('CS Block',       'Academic Block A'),
-('Hostel Block A', 'Residence Zone'),
-('Parking Lot',    'Main Gate'),
-('Sports Ground',  'Sports Complex'),
-('Auditorium',     'Student Centre'),
-('Admin Block',    'Main Building');
+('A Block',       ''),
+('B Block',       ''),
+('C Block',       ''),
+('Sixth Sense',   ''),
+('Heca',          ''),
+('Idea Factory',  ''),
+('D Block',       ''),
+('Boys Mess',     ''),
+('NRI Hostel',    ''),
+('Girls Hostel',  ''),
+('Rec Cafe',      ''),
+('Hut Cafe',      ''),
+('Blackbug',      ''),
+('Dominos',       ''),
+('Maingate',      '');
 
 -- -- Items ---------------------------------------------------------------
 INSERT INTO items (item_id, item_type, title, description, category_id,

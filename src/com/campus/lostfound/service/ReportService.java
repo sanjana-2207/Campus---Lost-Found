@@ -9,6 +9,7 @@ import com.campus.lostfound.model.ClaimStatus;
 import com.campus.lostfound.model.Item;
 import com.campus.lostfound.model.ItemStatus;
 import com.campus.lostfound.model.ItemType;
+import com.campus.lostfound.util.DateFormats;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -101,7 +102,7 @@ public class ReportService {
                 writer.write(',');
                 writer.write(escape(item.getLocationName()));
                 writer.write(',');
-                writer.write(item.getEventDate() == null ? "" : item.getEventDate().toString());
+                writer.write(item.getEventDate() == null ? "" : DateFormats.date(item.getEventDate()));
                 writer.write(',');
                 writer.write(escape(item.getStatus().getLabel()));
                 writer.write(',');

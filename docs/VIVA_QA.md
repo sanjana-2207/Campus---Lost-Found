@@ -12,8 +12,8 @@ the way you should say them: short first sentence, then one supporting detail.
 
 **1. What is your project?**
 A desktop Campus Lost and Found Management System. Students and staff report lost
-or found items, the system suggests matches, ownership claims are verified by
-security staff, and every recovery is tracked and reported.
+or found items, ownership claims are verified by security staff, and every recovery
+is tracked and reported.
 
 **2. Why is this project needed?**
 Campus lost-and-found information is scattered across notice boards, WhatsApp groups
@@ -21,8 +21,8 @@ and paper registers. It is not searchable, there is no proof of ownership, and t
 college cannot produce recovery statistics.
 
 **3. What are the main modules?**
-Authentication, item reporting, search and filter, match suggestions, claim
-verification and recovery, and reports/analytics. Six screens plus a login window.
+Authentication, item reporting, search and filter, claim verification and recovery,
+reports/analytics and account settings. Six screens plus a login window.
 
 **4. What is your technology stack and why?**
 Java + Swing for the client, JDBC for persistence, MySQL for storage. No framework,
@@ -60,7 +60,10 @@ master data (categories, locations) is maintained in SQL rather than in the UI.
 
 **11. What are the four pillars of OOPS?**
 Encapsulation, abstraction, inheritance and polymorphism. All four are used in the
-`Item` hierarchy and the DAO layer.
+`Item` hierarchy and the DAO layer. Alongside them this project also demonstrates
+**interfaces** (`GenericDAO`, `ItemDAO`, `Refreshable`) and **exceptional handling**
+(custom `ValidationException` / `DataAccessException`, thrown in the services and
+caught in the UI).
 
 **12. Define encapsulation and show it.**
 Wrapping data and the methods that operate on it in one class, with private fields.
@@ -410,9 +413,11 @@ cheap.
 
 | Examiner asks | Open this |
 |---|---|
+| Class & object | `model/Item.java`, `LostItem.java`; objects built in `ReportItemPanel.buildItem` |
 | Inheritance / polymorphism | `model/Item.java`, `LostItem.java`, `FoundItem.java` |
 | Encapsulation | `model/Item.java` (private fields + guarded setters) |
-| Abstraction / interfaces | `dao/GenericDAO.java`, `dao/ItemDAO.java` |
+| Abstraction / interfaces | `dao/GenericDAO.java`, `dao/ItemDAO.java`, `ui/Refreshable.java` |
+| Exceptional handling | `exception/ValidationException.java`, `exception/DataAccessException.java`, `ReportItemPanel.submitReport` (catch) |
 | Generics | `dao/GenericDAO.java`, `dao/AbstractJdbcDAO.java` |
 | Singleton | `config/DBConnection.java` |
 | Transaction | `service/ClaimService.java` → `runInTransaction` |

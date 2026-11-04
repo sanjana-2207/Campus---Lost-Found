@@ -2,7 +2,6 @@ package com.campus.lostfound.ui;
 
 import com.campus.lostfound.exception.ValidationException;
 import com.campus.lostfound.model.Role;
-import com.campus.lostfound.model.User;
 import com.campus.lostfound.service.AuthService;
 import com.campus.lostfound.util.Async;
 import com.campus.lostfound.util.SessionContext;
@@ -62,9 +61,9 @@ public class LoginFrame extends JFrame {
     private JLabel registerMessage;
 
     public LoginFrame() {
-        setTitle("Campus Lost & Found - Sign in");
+        setTitle("REC Lost & Found - Sign in");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(960, 660);
+        setSize(1040, 700);
         setLocationRelativeTo(null);
         setResizable(false);
 
@@ -78,20 +77,26 @@ public class LoginFrame extends JFrame {
     // ==================================================================
 
     private JComponent buildFormArea() {
-        formHolder.setBackground(UIStyle.CARD);
+        formHolder.setBackground(UIStyle.BG);
 
         JPanel loginCard = new JPanel();
-        loginCard.setBackground(UIStyle.CARD);
+        loginCard.setBackground(UIStyle.BG);
         loginCard.setBorder(BorderFactory.createEmptyBorder(46, 56, 40, 56));
         loginCard.setLayout(new BoxLayout(loginCard, BoxLayout.Y_AXIS));
 
-        JLabel heading = UIStyle.heading("Welcome back");
+        JLabel logo = new JLabel("REC Lost & Found");
+        logo.setFont(new Font("Arial", Font.BOLD, 24));
+        logo.setForeground(UIStyle.ACCENT_DARK);
+        logo.setAlignmentX(Component.LEFT_ALIGNMENT);
+        loginCard.add(logo);
+        loginCard.add(Box.createVerticalStrut(14));
+
+        JLabel heading = UIStyle.heading("Sign In");
         heading.setAlignmentX(Component.LEFT_ALIGNMENT);
         loginCard.add(heading);
         loginCard.add(Box.createVerticalStrut(6));
 
-        JLabel subtitle = UIStyle.subtitle(
-                "Sign in to report, search, match and recover campus items.");
+        JLabel subtitle = UIStyle.subtitle("Login to your REC Lost & Found account.");
         subtitle.setAlignmentX(Component.LEFT_ALIGNMENT);
         loginCard.add(subtitle);
         loginCard.add(Box.createVerticalStrut(26));
@@ -155,7 +160,7 @@ public class LoginFrame extends JFrame {
 
     private JComponent buildRegisterCard() {
         JPanel card = new JPanel();
-        card.setBackground(UIStyle.CARD);
+        card.setBackground(UIStyle.BG);
         card.setBorder(BorderFactory.createEmptyBorder(34, 56, 30, 56));
         card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
 
@@ -338,62 +343,78 @@ public class LoginFrame extends JFrame {
     }
 
     // ==================================================================
-    //  Brand panel (custom painted)
+    //  Brand panel (custom painted) Ã¢â‚¬â€ also the landing-screen shortcuts
     // ==================================================================
 
-    private static class BrandPanel extends JPanel {
+    private class BrandPanel extends JPanel {
 
         private static final long serialVersionUID = 1L;
 
         BrandPanel() {
             setPreferredSize(new Dimension(410, 0));
             setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
-            setBorder(BorderFactory.createEmptyBorder(64, 44, 48, 44));
+            setBorder(BorderFactory.createEmptyBorder(48, 44, 40, 44));
 
-            JLabel mark = new JLabel("REC");
-            mark.setFont(new Font("Segoe UI", Font.BOLD, 13));
-            mark.setForeground(new Color(0x8FD3DE));
+            JLabel mark = new JLabel("REC Lost & Found");
+            mark.setFont(new Font("Arial", Font.BOLD, 16));
+            mark.setForeground(new Color(0xFFD98A));
             mark.setAlignmentX(Component.LEFT_ALIGNMENT);
             add(mark);
-            add(Box.createVerticalStrut(18));
+            add(Box.createVerticalStrut(16));
 
-            JLabel title = new JLabel("<html>Campus<br>Lost &amp; Found</html>");
-            title.setFont(new Font("Segoe UI", Font.BOLD, 34));
+            JLabel title = new JLabel("<html>Welcome Back to<br>"
+                    + "<span style='color:#FFAE00'>REC Lost &amp; Found</span></html>");
+            title.setFont(new Font("Arial", Font.BOLD, 30));
             title.setForeground(Color.WHITE);
             title.setAlignmentX(Component.LEFT_ALIGNMENT);
             add(title);
             add(Box.createVerticalStrut(14));
 
-            JLabel tagline = new JLabel("<html>A single desk for every lost bottle,<br>"
-                    + "ID card, key and calculator on campus.</html>");
-            tagline.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-            tagline.setForeground(new Color(0xC9D6E2));
+            JLabel tagline = new JLabel("<html><body style='width:240px'>"
+                    + "Sign in to find your lost items, report found belongings "
+                    + "and help your campus community.</body></html>");
+            tagline.setFont(new Font("Arial", Font.PLAIN, 14));
+            tagline.setForeground(new Color(0xF4EAFF));
             tagline.setAlignmentX(Component.LEFT_ALIGNMENT);
             add(tagline);
-            add(Box.createVerticalStrut(30));
+            add(Box.createVerticalStrut(20));
 
-            add(bullet("Report lost and found items in seconds"));
-            add(bullet("Search and filter by category and location"));
-            add(bullet("Automatic match suggestions"));
-            add(bullet("Verified ownership claims and recovery tracking"));
+            add(benefit("\uD83D\uDD0D", "Find your lost items"));
+            add(Box.createVerticalStrut(8));
+            add(benefit("\uD83D\uDCE6", "Report found items"));
+            add(Box.createVerticalStrut(8));
+            add(benefit("\uD83E\uDD1D", "Connect with your campus"));
 
             add(Box.createVerticalGlue());
 
-            JLabel footer = new JLabel("Java  ·  Swing  ·  JDBC  ·  MySQL");
-            footer.setFont(new Font("Segoe UI", Font.BOLD, 12));
-            footer.setForeground(new Color(0x8FD3DE));
+            JLabel footer = new JLabel("REC Lost & Found");
+            footer.setFont(new Font("Arial", Font.BOLD, 12));
+            footer.setForeground(new Color(0xE9DAF8));
             footer.setAlignmentX(Component.LEFT_ALIGNMENT);
             add(footer);
         }
 
-        private JComponent bullet(String text) {
-            JLabel label = new JLabel("<html><body style='width:290px'>&#9679;&nbsp; "
-                    + text + "</body></html>");
-            label.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-            label.setForeground(new Color(0xDCE6EF));
-            label.setBorder(BorderFactory.createEmptyBorder(0, 0, 9, 0));
-            label.setAlignmentX(Component.LEFT_ALIGNMENT);
-            return label;
+        private JComponent benefit(String icon, String text) {
+            JPanel panel = new JPanel(new BorderLayout(12, 0));
+            panel.setBackground(new Color(255, 255, 255, 34));
+            panel.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(new Color(255, 255, 255, 24)),
+                    BorderFactory.createEmptyBorder(11, 14, 11, 14)));
+            panel.setAlignmentX(Component.LEFT_ALIGNMENT);
+            panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 50));
+
+            JLabel iconLabel = new JLabel(icon);
+            iconLabel.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 17));
+            iconLabel.setForeground(new Color(0xFFD98A));
+            iconLabel.setPreferredSize(new Dimension(26, 20));
+
+            JLabel textLabel = new JLabel(text);
+            textLabel.setFont(new Font("Arial", Font.PLAIN, 13));
+            textLabel.setForeground(Color.WHITE);
+
+            panel.add(iconLabel, BorderLayout.WEST);
+            panel.add(textLabel, BorderLayout.CENTER);
+            return panel;
         }
 
         @Override
@@ -403,8 +424,8 @@ public class LoginFrame extends JFrame {
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
                     RenderingHints.VALUE_ANTIALIAS_ON);
 
-            g2.setPaint(new GradientPaint(0, 0, UIStyle.NAVY,
-                    0, getHeight(), UIStyle.ACCENT_DARK));
+            g2.setPaint(new GradientPaint(0, 0, new Color(0x5420AD),
+                    getWidth(), getHeight(), new Color(0x8730D1)));
             g2.fillRect(0, 0, getWidth(), getHeight());
 
             g2.setColor(new Color(255, 255, 255, 16));

@@ -22,7 +22,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import javax.imageio.ImageIO;
 import java.awt.Color;
 import java.awt.Font;
+import java.awt.GradientPaint;
 import java.awt.Graphics2D;
+import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.time.LocalDate;
@@ -62,7 +64,7 @@ public class DataInitializer {
                 locationMap.put(name, location);
             }
 
-            User admin = user(users, encoder, "Dr. Ramesh Kumar", "admin@campus.edu",
+            user(users, encoder, "Dr. Ramesh Kumar", "admin@campus.edu",
                     "9840010001", "admin123", Role.ADMIN);
             User security = user(users, encoder, "Suresh Babu", "security@campus.edu",
                     "9840010002", "staff123", Role.STAFF);
@@ -220,6 +222,8 @@ public class DataInitializer {
         item.setReporter(reporter);
         item.setStatus(status);
         item.setCreatedAt(createdAt);
+        item.setPhoto(photo(title));
+        item.setPhotoContentType("image/png");
         return items.save(item);
     }
 
@@ -241,10 +245,8 @@ public class DataInitializer {
         item.setHandedToSecurity(handedToSecurity);
         item.setFinderNotes(notes);
         item.setCreatedAt(createdAt);
-        if (photo != null) {
-            item.setPhoto(photo);
-            item.setPhotoContentType("image/png");
-        }
+        item.setPhoto(photo != null ? photo : photo(title));
+        item.setPhotoContentType("image/png");
         return items.save(item);
     }
 
@@ -267,13 +269,45 @@ public class DataInitializer {
 
     private byte[] photo(String label) {
         try {
-            BufferedImage image = new BufferedImage(320, 220, BufferedImage.TYPE_INT_RGB);
+            int width = 640;
+            int height = 440;
+            BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
             Graphics2D g = image.createGraphics();
-            g.setColor(new Color(0x6D28D9));
-            g.fillRect(0, 0, 320, 220);
-            g.setColor(new Color(0xE9D5FF));
-            g.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 28));
-            g.drawString(label, 28, 120);
+            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
+                    RenderingHints.VALUE_ANTIALIAS_ON);
+            g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
+                    RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+
+            Color[] palette = {
+                    new Color(0x6D28D9), new Color(0x2563EB), new Color(0x0F766E),
+                    new Color(0xB45309), new Color(0xBE123C), new Color(0x4338CA)
+            };
+            Color base = palette[Math.floorMod(label.hashCode(), palette.length)];
+            g.setPaint(new GradientPaint(0, 0, base.brighter(), width, height, base.darker()));
+            g.fillRect(0, 0, width, height);
+
+            g.setColor(new Color(255, 255, 255, 28));
+            g.fillOval(-120, -120, 420, 420);
+            g.fillOval(width - 260, height - 220, 380, 380);
+
+            g.setColor(new Color(255, 255, 255, 232));
+            g.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 42));
+            List<String> lines = wrapLabel(g, label, width - 120);
+            int lineHeight = g.getFontMetrics().getHeight();
+            int y = height / 2 - (lines.size() * lineHeight) / 2
+                    + g.getFontMetrics().getAscent();
+            for (String line : lines) {
+                int x = (width - g.getFontMetrics().stringWidth(line)) / 2;
+                g.drawString(line, x, y);
+                y += lineHeight;
+            }
+
+            g.setColor(new Color(255, 255, 255, 170));
+            g.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 20));
+            String caption = "REC LOST & FOUND - DEMO PHOTO";
+            int captionX = (width - g.getFontMetrics().stringWidth(caption)) / 2;
+            g.drawString(caption, captionX, height - 34);
+
             g.dispose();
             ByteArrayOutputStream output = new ByteArrayOutputStream();
             ImageIO.write(image, "png", output);
@@ -281,5 +315,25 @@ public class DataInitializer {
         } catch (Exception ex) {
             return null;
         }
+    }
+
+    private List<String> wrapLabel(Graphics2D g, String label, int maxWidth) {
+        List<String> lines = new ArrayList<>();
+        StringBuilder line = new StringBuilder();
+        for (String word : label.split("\\s+")) {
+            String candidate = line.length() == 0 ? word : line + " " + word;
+            if (line.length() > 0 && g.getFontMetrics().stringWidth(candidate) > maxWidth) {
+                lines.add(line.toString());
+                line.setLength(0);
+            }
+            if (line.length() > 0) {
+                line.append(' ');
+            }
+            line.append(word);
+        }
+        if (line.length() > 0) {
+            lines.add(line.toString());
+        }
+        return lines;
     }
 }

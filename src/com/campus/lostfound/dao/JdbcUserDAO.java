@@ -15,7 +15,8 @@ import java.util.List;
 public class JdbcUserDAO extends AbstractJdbcDAO<User> implements UserDAO {
 
     private static final String BASE_SELECT =
-            "SELECT user_id, full_name, email, phone, password_hash, role, created_at "
+            "SELECT user_id, full_name, email, phone, gender, student_id, "
+          + "password_hash, role, created_at "
           + "FROM users ";
 
     @Override
@@ -143,7 +144,8 @@ public class JdbcUserDAO extends AbstractJdbcDAO<User> implements UserDAO {
 
     @Override
     public boolean update(User user) {
-        String sql = "UPDATE users SET full_name = ?, email = ?, phone = ?, role = ? "
+        String sql = "UPDATE users SET full_name = ?, email = ?, phone = ?, "
+                   + "gender = ?, student_id = ?, role = ? "
                    + "WHERE user_id = ?";
         try (Connection connection = openConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
@@ -151,8 +153,10 @@ public class JdbcUserDAO extends AbstractJdbcDAO<User> implements UserDAO {
             statement.setString(1, user.getFullName());
             statement.setString(2, user.getEmail());
             statement.setString(3, user.getPhone());
-            statement.setString(4, user.getRole().name());
-            statement.setInt(5, user.getUserId());
+            statement.setString(4, emptyToNull(user.getGender()));
+            statement.setString(5, emptyToNull(user.getStudentId()));
+            statement.setString(6, user.getRole().name());
+            statement.setInt(7, user.getUserId());
             return statement.executeUpdate() > 0;
         } catch (SQLException ex) {
             throw wrap("Could not update the account", ex);
@@ -172,12 +176,18 @@ public class JdbcUserDAO extends AbstractJdbcDAO<User> implements UserDAO {
         }
     }
 
+    private static String emptyToNull(String value) {
+        return value == null || value.trim().isEmpty() ? null : value.trim();
+    }
+
     private User mapRow(ResultSet rs) throws SQLException {
         User user = new User();
         user.setUserId(rs.getInt("user_id"));
         user.setFullName(rs.getString("full_name"));
         user.setEmail(rs.getString("email"));
         user.setPhone(rs.getString("phone"));
+        user.setGender(rs.getString("gender"));
+        user.setStudentId(rs.getString("student_id"));
         user.setPasswordHash(rs.getString("password_hash"));
         user.setRole(Role.valueOf(rs.getString("role")));
         user.setCreatedAt(rs.getTimestamp("created_at"));

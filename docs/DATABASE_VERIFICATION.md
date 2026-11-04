@@ -78,12 +78,12 @@ FROM vw_potential_matches;
 
 | lost | found | category | location | days apart | score |
 |---|---|---|---|---|---|
-| 9 | 10 | Electronics | Parking Lot | 0 | 100 |
-| 13 | 14 | Electronics | CS Block | 0 | 100 |
-| 1 | 2 | Electronics | CS Block | 1 | 100 |
-| 3 | 4 | Accessories | Canteen | 1 | 100 |
-| 13 | 2 | Electronics | CS Block | 9 | 75 |
-| 1 | 14 | Electronics | CS Block | 10 | 75 |
+| 9 | 10 | Electronics | Heca | 0 | 100 |
+| 13 | 14 | Electronics | C Block | 0 | 100 |
+| 1 | 2 | Electronics | C Block | 1 | 100 |
+| 3 | 4 | Accessories | B Block | 1 | 100 |
+| 13 | 2 | Electronics | C Block | 9 | 75 |
+| 1 | 14 | Electronics | C Block | 10 | 75 |
 
 This confirms the scoring rules: 40 (category) + 30 (location) + 20/12/5 (date
 proximity) + 10 (title keyword), filtered at `match_score >= 50`.

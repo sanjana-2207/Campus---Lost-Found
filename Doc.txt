@@ -2,7 +2,7 @@ Project Title: Campus Lost and Found Management System
 
 Description: A Java and MySQL-based application to manage lost and found items within a college campus, helping students and staff report, search for, and recover their belongings efficiently.
 
-OOPS Concepts: Classes, Objects, Inheritance, Encapsulation, Abstraction, and Polymorphism.
+OOPS Concepts: Classes and Objects, Encapsulation, Inheritance, Polymorphism, Abstraction, Interfaces, and Exceptional Handling.
 
 DBMS Concepts: Tables, Primary Keys, Foreign Keys, CRUD Operations, SQL Joins, Constraints, and Transactions.
 

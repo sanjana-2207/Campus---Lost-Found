@@ -18,6 +18,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
@@ -88,6 +90,11 @@ public class JdbcItemDAO extends AbstractJdbcDAO<Item> implements ItemDAO {
                 sql.append("AND i.status = ? ");
                 parameters.add(filter.getStatus().name());
             }
+            if (filter.isClaimableOnly()) {
+                // Reserved, recovered and closed items stay in the database
+                // for reporting, but they are not offered for new claims.
+                sql.append("AND i.status IN ('OPEN','MATCHED') ");
+            }
             if (filter.getCategoryId() != null) {
                 sql.append("AND i.category_id = ? ");
                 parameters.add(filter.getCategoryId());
@@ -115,6 +122,19 @@ public class JdbcItemDAO extends AbstractJdbcDAO<Item> implements ItemDAO {
             if (filter.getToDate() != null) {
                 sql.append("AND i.event_date <= ? ");
                 parameters.add(filter.getToDate());
+            }
+            if (filter.getFromTime() != null) {
+                // created_at is stored in UTC, while the UI shows local time.
+                // Shift it before comparing so "after 3:00 PM" means the same
+                // time the user sees in the Reported at column.
+                sql.append("AND TIME(DATE_ADD(i.created_at, INTERVAL ? MINUTE)) >= ? ");
+                parameters.add(localOffsetMinutes());
+                parameters.add(java.sql.Time.valueOf(filter.getFromTime()));
+            }
+            if (filter.getToTime() != null) {
+                sql.append("AND TIME(DATE_ADD(i.created_at, INTERVAL ? MINUTE)) <= ? ");
+                parameters.add(localOffsetMinutes());
+                parameters.add(java.sql.Time.valueOf(filter.getToTime()));
             }
         }
 
@@ -572,6 +592,12 @@ public class JdbcItemDAO extends AbstractJdbcDAO<Item> implements ItemDAO {
             // connection (rolling back if needed) when it is returned.
             closeQuietly(connection);
         }
+    }
+
+    /** Current local offset in minutes, used to align SQL time with the UI. */
+    private static int localOffsetMinutes() {
+        return ZoneId.systemDefault().getRules()
+                .getOffset(Instant.now()).getTotalSeconds() / 60;
     }
 
     /** Escapes LIKE metacharacters so user input is matched literally. */

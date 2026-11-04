@@ -19,6 +19,9 @@ public interface ClaimDAO extends GenericDAO<Claim> {
     /** Claims submitted by one user. */
     List<Claim> findByClaimant(int claimantId);
 
+    /** Claims raised against items reported by one user. */
+    List<Claim> findByReporter(int reporterId);
+
     /**
      * True when this user already has an <em>active</em> claim on this item.
      * Rejected claims do not block a fresh claim.

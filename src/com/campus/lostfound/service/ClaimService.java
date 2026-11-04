@@ -123,6 +123,11 @@ public class ClaimService {
         return claimDAO.findByClaimant(claimantId);
     }
 
+    /** Claims raised against items reported by this user (finder handovers). */
+    public List<Claim> claimsOnMyReports(int reporterId) {
+        return claimDAO.findByReporter(reporterId);
+    }
+
     // ==================================================================
     //  Verifier side (STAFF / ADMIN)
     // ==================================================================
@@ -222,12 +227,82 @@ public class ClaimService {
         });
     }
 
+    /**
+     * The finder confirms that the verified owner collected the item. This is
+     * the final handover step: the claim and the item both become RECOVERED,
+     * which removes the item from Search and claim while keeping it in the
+     * reports and analytics aggregates.
+     */
+    public void confirmHandover(Claim claim, User reporter) {
+        if (claim == null || claim.getStatus() != ClaimStatus.APPROVED) {
+            throw new ValidationException(
+                    "Only an approved claim can be confirmed as handed over.");
+        }
+        if (reporter == null) {
+            throw new ValidationException(
+                    "You must be signed in to confirm a handover.");
+        }
+
+        final int itemId = claim.getItem().getItemId();
+
+        runInTransaction(new TransactionWork() {
+            @Override
+            public void execute(Connection connection) {
+                Item locked = itemDAO.findByIdForUpdate(connection, itemId);
+                if (locked == null) {
+                    throw new ValidationException("This item report no longer exists.");
+                }
+                if (locked.getReportedBy() == null
+                        || locked.getReportedBy().getUserId() != reporter.getUserId()) {
+                    throw new ValidationException(
+                            "Only the person who reported this item can confirm the handover.");
+                }
+                if (locked.getStatus() != ItemStatus.CLAIMED) {
+                    throw new ValidationException(
+                            "This item is not reserved for a verified owner. Refresh the list.");
+                }
+                if (!claimDAO.updateStatus(connection, claim.getClaimId(),
+                        ClaimStatus.APPROVED, ClaimStatus.RECOVERED, null,
+                        handoverNote(claim.getRemarks()))) {
+                    throw new ValidationException(
+                            "This claim was already processed by somebody else. Refresh the list.");
+                }
+                if (!itemDAO.updateStatus(connection, itemId,
+                        ItemStatus.CLAIMED, ItemStatus.RECOVERED)) {
+                    throw new ValidationException(
+                            "The item changed while the handover was being confirmed. Refresh the list.");
+                }
+            }
+        });
+    }
+
     public List<Claim> allClaims() {
         return claimDAO.findAllDetailed();
     }
 
     public int pendingCount() {
         return claimDAO.countPending();
+    }
+
+    /**
+     * Number of items that need a decision from this user: pending claims for
+     * staff, plus approved claims on the user's own found reports that still
+     * need a handover confirmation.
+     */
+    public int actionableCount(User user) {
+        if (user == null) {
+            return 0;
+        }
+        int count = 0;
+        if (user.getRole() == Role.STAFF || user.getRole() == Role.ADMIN) {
+            count += claimDAO.countPending();
+        }
+        for (Claim claim : claimDAO.findByReporter(user.getUserId())) {
+            if (claim.getStatus() == ClaimStatus.APPROVED) {
+                count++;
+            }
+        }
+        return count;
     }
 
     // ==================================================================
@@ -279,6 +354,17 @@ public class ClaimService {
                 || (verifier.getRole() != Role.STAFF && verifier.getRole() != Role.ADMIN)) {
             throw new ValidationException("Only staff or an administrator can verify claims.");
         }
+    }
+
+    private String handoverNote(String previousRemarks) {
+        String note = "Owner collected the item; handover confirmed by the finder.";
+        if (isBlank(previousRemarks)) {
+            return note;
+        }
+        String combined = previousRemarks.trim() + " | " + note;
+        return combined.length() <= MAX_REMARKS_LENGTH
+                ? combined
+                : combined.substring(0, MAX_REMARKS_LENGTH);
     }
 
     private String cleanRemarks(String remarks, String fallback) {

@@ -2,7 +2,6 @@ package com.campus.web.service;
 
 import com.campus.web.model.AppNotification;
 import com.campus.web.model.Claim;
-import com.campus.web.model.ClaimStatus;
 import com.campus.web.model.User;
 import org.springframework.stereotype.Service;
 

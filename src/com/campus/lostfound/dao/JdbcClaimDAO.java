@@ -94,6 +94,13 @@ public class JdbcClaimDAO extends AbstractJdbcDAO<Claim> implements ClaimDAO {
     }
 
     @Override
+    public List<Claim> findByReporter(int reporterId) {
+        return selectList(BASE_SELECT + "WHERE i.reporter_id = ? "
+                        + "ORDER BY cl.submitted_at DESC",
+                reporterId);
+    }
+
+    @Override
     public boolean existsActiveFor(int itemId, int claimantId) {
         try (Connection connection = openConnection()) {
             return existsActiveFor(connection, itemId, claimantId);

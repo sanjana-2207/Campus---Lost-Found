@@ -6,8 +6,8 @@ import com.campus.lostfound.service.ClaimService;
 import com.campus.lostfound.service.ItemService;
 import com.campus.lostfound.service.MatchService;
 import com.campus.lostfound.util.Async;
+import com.campus.lostfound.util.DateFormats;
 
-import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
@@ -19,18 +19,14 @@ import javax.swing.JTable;
 import javax.swing.ListSelectionModel;
 import java.awt.BorderLayout;
 import java.awt.Component;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Shows the pairs produced by the SQL matching view.
- *
- * <p>Selecting a row explains the score in plain English, which makes the
- * feature easy to demonstrate: every match has a reason.</p>
+ * FINDIT-style Possible Matches screen. The pairs come from the SQL matching
+ * view; double-clicking a row opens the found report so an owner can claim it.
  */
 public class MatchesPanel extends JPanel implements Refreshable {
 
@@ -39,25 +35,27 @@ public class MatchesPanel extends JPanel implements Refreshable {
     private final MatchService matchService;
     private final ItemService itemService;
     private final ClaimService claimService;
+    private final Runnable onBack;
 
     private final ListTableModel tableModel = new ListTableModel(new String[]{
-            "Score", "Confidence", "Lost report", "Found report", "Category", "Location",
-            "Lost date", "Found date", "Days"});
+            "Lost report", "Found report", "Category", "Location",
+            "Lost date", "Found date", "Score", "Confidence"});
     private final JTable table = new JTable(tableModel);
-    private final JLabel explanation = new JLabel("Select a match to see why it was suggested.");
-    private final List<MatchResult> matches = new ArrayList<MatchResult>();
+    private final List<MatchResult> currentMatches = new ArrayList<MatchResult>();
+    private final JLabel resultLabel = new JLabel(" ");
 
     public MatchesPanel(MatchService matchService, ItemService itemService,
-                        ClaimService claimService) {
+                        ClaimService claimService, Runnable onBack) {
         this.matchService = matchService;
         this.itemService = itemService;
         this.claimService = claimService;
+        this.onBack = onBack;
 
         setLayout(new BorderLayout(0, 16));
         setBackground(UIStyle.BG);
 
         add(buildHeader(), BorderLayout.NORTH);
-        add(buildCard(), BorderLayout.CENTER);
+        add(buildBody(), BorderLayout.CENTER);
     }
 
     private JComponent buildHeader() {
@@ -68,151 +66,113 @@ public class MatchesPanel extends JPanel implements Refreshable {
         text.setOpaque(false);
         text.setLayout(new BoxLayout(text, BoxLayout.Y_AXIS));
 
-        JLabel title = UIStyle.heading("Match suggestions");
+        JLabel title = UIStyle.heading("Possible Matches");
         title.setAlignmentX(Component.LEFT_ALIGNMENT);
         JLabel subtitle = UIStyle.subtitle(
-                "Lost and found reports with the same category and location, "
-                + "scored by date proximity.");
+                "Lost and found reports that look like the same item.");
         subtitle.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         text.add(title);
-        text.add(Box.createVerticalStrut(4));
+        text.add(Box.createVerticalStrut(2));
         text.add(subtitle);
+        text.add(Box.createVerticalStrut(8));
+        text.add(UIStyle.backLink(onBack));
         header.add(text, BorderLayout.WEST);
 
-        JButton refresh = UIStyle.secondaryButton("Refresh matches");
-        refresh.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent event) {
-                refreshData();
-            }
-        });
+        JButton refresh = UIStyle.secondaryButton("Refresh");
+        refresh.addActionListener(event -> refreshData());
         header.add(refresh, BorderLayout.EAST);
-
         return header;
     }
 
-    private JComponent buildCard() {
+    private JComponent buildBody() {
         JPanel card = UIStyle.card();
         card.setLayout(new BorderLayout(0, 10));
 
-        JLabel note = UIStyle.muted(
-                "Double-click a row to open the found item and submit a claim.");
-        card.add(note, BorderLayout.NORTH);
+        JPanel top = new JPanel(new BorderLayout());
+        top.setOpaque(false);
+        JLabel heading = new JLabel("Suggested matches");
+        heading.setFont(UIStyle.FONT_BOLD.deriveFont(15f));
+        heading.setForeground(UIStyle.TEXT);
+        resultLabel.setFont(UIStyle.FONT_SMALL);
+        resultLabel.setForeground(UIStyle.MUTED);
+        top.add(heading, BorderLayout.WEST);
+        top.add(resultLabel, BorderLayout.EAST);
+        card.add(top, BorderLayout.NORTH);
 
         UIStyle.styleTable(table);
         table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        table.getColumnModel().getColumn(0).setPreferredWidth(55);
-        table.getColumnModel().getColumn(1).setPreferredWidth(85);
-        table.getColumnModel().getColumn(2).setPreferredWidth(230);
-        table.getColumnModel().getColumn(3).setPreferredWidth(230);
-        table.getColumnModel().getColumn(4).setPreferredWidth(110);
-        table.getColumnModel().getColumn(5).setPreferredWidth(110);
-        table.getColumnModel().getColumn(6).setPreferredWidth(95);
-        table.getColumnModel().getColumn(7).setPreferredWidth(95);
-        table.getColumnModel().getColumn(8).setPreferredWidth(50);
-        table.getColumnModel().getColumn(0).setCellRenderer(new StatusCellRenderer());
-
-        table.getSelectionModel().addListSelectionListener(event -> {
-            if (!event.getValueIsAdjusting()) {
-                showExplanation();
-            }
-        });
+        table.getColumnModel().getColumn(0).setPreferredWidth(220);
+        table.getColumnModel().getColumn(1).setPreferredWidth(220);
+        table.getColumnModel().getColumn(2).setPreferredWidth(110);
+        table.getColumnModel().getColumn(3).setPreferredWidth(100);
+        table.getColumnModel().getColumn(4).setPreferredWidth(95);
+        table.getColumnModel().getColumn(5).setPreferredWidth(95);
+        table.getColumnModel().getColumn(6).setPreferredWidth(60);
+        table.getColumnModel().getColumn(7).setPreferredWidth(90);
         table.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent event) {
                 if (event.getClickCount() == 2) {
-                    openFoundItem();
+                    openSelectedMatch();
                 }
             }
         });
 
         card.add(UIStyle.scroll(table), BorderLayout.CENTER);
 
-        JPanel footer = new JPanel(new BorderLayout(12, 0));
-        footer.setOpaque(false);
-        footer.setBorder(BorderFactory.createEmptyBorder(6, 2, 0, 2));
-
-        explanation.setFont(UIStyle.FONT_SMALL);
-        explanation.setForeground(UIStyle.MUTED);
-        footer.add(explanation, BorderLayout.CENTER);
-
-        JButton open = UIStyle.primaryButton("Open found item");
-        open.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent event) {
-                openFoundItem();
-            }
-        });
-        footer.add(open, BorderLayout.EAST);
-
-        card.add(footer, BorderLayout.SOUTH);
+        JLabel hint = UIStyle.muted(
+                "Double-click a match to open the found report and claim it.");
+        card.add(hint, BorderLayout.SOUTH);
         return card;
     }
 
     @Override
     public void refreshData() {
-        Async.run(matchService::findMatches, results -> {
-            matches.clear();
-            matches.addAll(results);
+        Async.run(matchService::findMatches, matches -> {
+            currentMatches.clear();
+            currentMatches.addAll(matches);
 
             List<Object[]> rows = new ArrayList<Object[]>();
-            for (MatchResult match : results) {
+            for (MatchResult match : matches) {
                 rows.add(new Object[]{
-                        match.getScore(),
-                        match.getConfidence(),
                         "#" + match.getLostItemId() + "  " + match.getLostTitle(),
                         "#" + match.getFoundItemId() + "  " + match.getFoundTitle(),
                         match.getCategoryName(),
                         match.getLocationName(),
-                        match.getLostDate(),
-                        match.getFoundDate(),
-                        match.getDaysApart()});
+                        DateFormats.date(match.getLostDate()),
+                        DateFormats.date(match.getFoundDate()),
+                        match.getScore(),
+                        match.getConfidence()});
             }
             tableModel.setRows(rows);
-
-            explanation.setText(results.isEmpty()
-                    ? "No matches right now. Report more items or relax the filters."
-                    : results.size() + " suggested matches. Select a row for the reason.");
-        }, error -> Async.showError(this, error, "Could not load the matches"));
+            resultLabel.setText(matches.size()
+                    + (matches.size() == 1 ? " match" : " matches"));
+        }, error -> Async.showError(this, error, "Could not load possible matches"));
     }
 
-    private void showExplanation() {
-        MatchResult match = selectedMatch();
-        if (match != null) {
-            explanation.setText(matchService.explain(match));
-        }
-    }
-
-    private MatchResult selectedMatch() {
+    private void openSelectedMatch() {
         int viewRow = table.getSelectedRow();
         if (viewRow < 0) {
-            return null;
-        }
-        int modelRow = table.convertRowIndexToModel(viewRow);
-        return modelRow >= 0 && modelRow < matches.size() ? matches.get(modelRow) : null;
-    }
-
-    private void openFoundItem() {
-        MatchResult match = selectedMatch();
-        if (match == null) {
             JOptionPane.showMessageDialog(this,
-                    "Select a match in the table first.", "Nothing selected",
+                    "Select a match first.", "Nothing selected",
                     JOptionPane.INFORMATION_MESSAGE);
             return;
         }
-        final int foundItemId = match.getFoundItemId();
-        Async.run(() -> itemService.findById(foundItemId), foundItem -> {
-            if (foundItem == null) {
-                JOptionPane.showMessageDialog(this,
-                        "That found report no longer exists.", "Not found",
-                        JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-            boolean claimed = ItemDetailDialog.open(this, foundItem, claimService);
-            if (claimed) {
-                refreshData();
-            }
-        }, error -> Async.showError(this, error, "Could not open the found report"));
+        int modelRow = table.convertRowIndexToModel(viewRow);
+        if (modelRow < 0 || modelRow >= currentMatches.size()) {
+            return;
+        }
+        MatchResult match = currentMatches.get(modelRow);
+        Item item = itemService.findById(match.getFoundItemId());
+        if (item == null) {
+            JOptionPane.showMessageDialog(this,
+                    "That found report no longer exists.", "Not found",
+                    JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        if (ItemDetailDialog.open(this, item, claimService)) {
+            refreshData();
+        }
     }
 }

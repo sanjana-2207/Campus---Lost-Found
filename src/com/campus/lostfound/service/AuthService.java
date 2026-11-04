@@ -117,6 +117,90 @@ public class AuthService {
         return user;
     }
 
+    /**
+     * Saves the editable profile fields of the signed-in user
+     * (settings screen: name, e-mail, phone, gender).
+     *
+     * <p>The e-mail must still be unique, the current password is not needed
+     * here - only {@link #changePassword} re-authenticates.</p>
+     *
+     * @throws ValidationException when a field fails its validation rule
+     */
+    public User updateProfile(User current, String fullName, String email,
+                              String phone, String gender) {
+        if (current == null) {
+            throw new ValidationException("You are not signed in.");
+        }
+        if (isBlank(fullName) || fullName.trim().length() < 3) {
+            throw new ValidationException("Enter your full name (at least 3 characters).");
+        }
+        if (fullName.trim().length() > MAX_NAME_LENGTH) {
+            throw new ValidationException("Your full name must be at most "
+                    + MAX_NAME_LENGTH + " characters.");
+        }
+        if (isBlank(email) || !email.trim().matches("^[\\w.+-]+@[\\w-]+\\.[\\w.-]+$")) {
+            throw new ValidationException("Enter a valid e-mail address, for example name@campus.edu.");
+        }
+        if (email.trim().length() > MAX_EMAIL_LENGTH) {
+            throw new ValidationException("Your e-mail address must be at most "
+                    + MAX_EMAIL_LENGTH + " characters.");
+        }
+        if (isBlank(phone) || !phone.replaceAll("[^0-9]", "").matches("\\d{10,12}")) {
+            throw new ValidationException("Enter a valid phone number with 10 to 12 digits.");
+        }
+        if (phone.trim().length() > MAX_PHONE_LENGTH) {
+            throw new ValidationException("Your phone number must be at most "
+                    + MAX_PHONE_LENGTH + " characters.");
+        }
+        if (gender != null && gender.trim().length() > 20) {
+            throw new ValidationException("The gender value must be at most 20 characters.");
+        }
+
+        String normalisedEmail = email.trim().toLowerCase();
+        User existing = userDAO.findByEmail(normalisedEmail);
+        if (existing != null && existing.getUserId() != current.getUserId()) {
+            throw new ValidationException("That e-mail address is already used by another account.");
+        }
+
+        current.setFullName(fullName.trim());
+        current.setEmail(normalisedEmail);
+        current.setPhone(phone.trim());
+        current.setGender(gender == null ? null : gender.trim());
+        userDAO.update(current);
+        return current;
+    }
+
+    /**
+     * Changes the password of a signed-in user after re-checking the current
+     * password (settings screen: "Change Password").
+     *
+     * @throws ValidationException when the current password is wrong or the
+     *                               new password fails the rules
+     */
+    public void changePassword(int userId, String currentPassword,
+                               String newPassword, String confirmPassword) {
+        User user = userDAO.findById(userId);
+        if (user == null) {
+            throw new ValidationException("The account could not be found.");
+        }
+        if (isBlank(currentPassword)
+                || !PasswordUtil.matches(currentPassword, user.getPasswordHash())) {
+            throw new ValidationException("Your current password is incorrect.");
+        }
+        if (newPassword == null || newPassword.length() < 6) {
+            throw new ValidationException("Choose a password with at least 6 characters.");
+        }
+        if (newPassword.length() > MAX_PASSWORD_LENGTH) {
+            throw new ValidationException("Choose a password with at most "
+                    + MAX_PASSWORD_LENGTH + " characters.");
+        }
+        if (!newPassword.equals(confirmPassword)) {
+            throw new ValidationException("The two passwords do not match.");
+        }
+
+        userDAO.updatePasswordHash(userId, PasswordUtil.hash(newPassword));
+    }
+
     private boolean isBlank(String value) {
         return value == null || value.trim().isEmpty();
     }

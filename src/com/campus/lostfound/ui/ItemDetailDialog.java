@@ -5,10 +5,13 @@ import com.campus.lostfound.model.Item;
 import com.campus.lostfound.model.ItemStatus;
 import com.campus.lostfound.model.ItemType;
 import com.campus.lostfound.service.ClaimService;
+import com.campus.lostfound.util.DateFormats;
+import com.campus.lostfound.util.ImageStore;
 import com.campus.lostfound.util.SessionContext;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
+import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JDialog;
@@ -19,7 +22,6 @@ import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.SwingUtilities;
 import java.awt.BorderLayout;
-import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Font;
@@ -54,7 +56,7 @@ public class ItemDetailDialog extends JDialog {
         this.claimService = claimService;
 
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
-        setSize(600, 660);
+        setSize(700, 680);
         setLocationRelativeTo(owner);
 
         JPanel content = new JPanel(new BorderLayout(0, 14));
@@ -90,12 +92,18 @@ public class ItemDetailDialog extends JDialog {
                 ? UIStyle.WARNING : UIStyle.ACCENT_DARK);
         top.add(type, BorderLayout.NORTH);
 
-        JLabel title = new JLabel("<html><body style='width:480px'>"
+        JLabel title = new JLabel("<html><body style='width:400px'>"
                 + escape(item.getTitle()) + "</body></html>");
-        title.setFont(new Font("Segoe UI", Font.BOLD, 20));
+        title.setFont(new Font("Arial", Font.BOLD, 20));
         title.setForeground(UIStyle.TEXT);
         top.add(title, BorderLayout.CENTER);
 
+        ImageIcon photo = ImageStore.loadForItem(item.getItemId(), 180, 140);
+        if (photo != null) {
+            JLabel photoLabel = new JLabel(photo);
+            photoLabel.setBorder(BorderFactory.createLineBorder(UIStyle.BORDER));
+            top.add(photoLabel, BorderLayout.EAST);
+        }
         return top;
     }
 
@@ -115,9 +123,10 @@ public class ItemDetailDialog extends JDialog {
         row = addRow(grid, constraints, row, "Category", item.getCategoryName());
         row = addRow(grid, constraints, row, "Location", item.getLocationName()
                 + (item.getLocation() == null || item.getLocation().getBuilding() == null
+                        || item.getLocation().getBuilding().isEmpty()
                         ? "" : "  (" + item.getLocation().getBuilding() + ")"));
-        row = addRow(grid, constraints, row, "Date", String.valueOf(item.getEventDate()));
-        row = addRow(grid, constraints, row, "Status", item.getStatus().getLabel());
+        row = addRow(grid, constraints, row, "Date", DateFormats.date(item.getEventDate()));
+        row = addRow(grid, constraints, row, "Reported at", DateFormats.dateTime(item.getCreatedAt()));
         row = addRow(grid, constraints, row, "Reported by", item.getReporterName()
                 + (item.getReportedBy() == null ? "" : "  ·  " + item.getReportedBy().getEmail()));
         row = addRow(grid, constraints, row, "Contact", item.getReportedBy() == null
@@ -135,7 +144,7 @@ public class ItemDetailDialog extends JDialog {
         descriptionArea.setWrapStyleWord(true);
         descriptionArea.setFont(UIStyle.FONT);
         descriptionArea.setForeground(UIStyle.TEXT);
-        descriptionArea.setBackground(new Color(0xF8FAFC));
+        descriptionArea.setBackground(UIStyle.blend(UIStyle.CARD, UIStyle.TEXT, 0.06f));
         descriptionArea.setBorder(BorderFactory.createEmptyBorder(8, 10, 8, 10));
         description.add(descriptionArea, BorderLayout.CENTER);
 
@@ -145,7 +154,7 @@ public class ItemDetailDialog extends JDialog {
         extraArea.setWrapStyleWord(true);
         extraArea.setFont(UIStyle.FONT);
         extraArea.setForeground(UIStyle.MUTED);
-        extraArea.setBackground(new Color(0xF8FAFC));
+        extraArea.setBackground(UIStyle.blend(UIStyle.CARD, UIStyle.TEXT, 0.06f));
         extraArea.setBorder(BorderFactory.createEmptyBorder(8, 10, 8, 10));
 
         JPanel textHolder = new JPanel(new BorderLayout(0, 8));

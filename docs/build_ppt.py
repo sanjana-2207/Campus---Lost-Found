@@ -5,7 +5,7 @@ Build the presentation for the Campus Lost & Found project.
     pip install python-pptx
     python docs/build_ppt.py
 
-Output: docs/Campus_Lost_and_Found_Presentation.pptx  (16:9, 30 slides, speaker notes)
+Output: docs/Campus_Lost_and_Found_Presentation.pptx  (16:9, 29 slides, speaker notes)
 """
 
 import os
@@ -471,7 +471,7 @@ def slide_05():
         ("Faster recovery", "Suggest matches automatically instead of relying on someone scrolling a group."),
         ("Verified ownership", "No item is released without checked proof and a recorded verifier."),
         ("Management reporting", "Live counts of lost, found, claimed and recovered items, exportable to CSV."),
-        ("Academic demonstration", "Use all four OOPS pillars and the core DBMS features for a real reason."),
+        ("Academic demonstration", "Use all seven OOPS topics and the core DBMS features for a real reason."),
     ]
     for i, (title, body) in enumerate(objectives):
         y = 1.85 + i * 0.95
@@ -655,35 +655,26 @@ transaction reusable and the code testable.
 # ----------------------------------------------------------------------------
 def slide_10():
     s = new_slide()
-    chrome(s, "OOPS at a glance", "Four pillars, one hierarchy — seen from four angles", 10)
+    chrome(s, "OOPS at a glance", "Seven topics, one hierarchy — each with a real home in the code", 10)
 
-    quadrants = [
-        ("Encapsulation", "Data is private; behaviour is public.", "Item · User · DBConnection",
-         "`setStatus` never allows null", ACCENT),
-        ("Abstraction", "Expose what, hide how.", "abstract Item · GenericDAO<T>",
-         "UI asks for an item type, not a class", ACCENT_DARK),
-        ("Inheritance", "Reuse common state and behaviour.", "LostItem / FoundItem extend Item",
-         "Common fields declared once", WARNING),
-        ("Polymorphism", "One reference, many runtime forms.", "List<Item> · overridden methods",
-         "No instanceof in the UI", SUCCESS),
+    data = [
+        ["Topic", "In one line", "Where"],
+        ["Class & Object", "Blueprint plus a live instance", "Item · LostItem · new LostItem(...)"],
+        ["Encapsulation", "Data is private; behaviour is public", "Item · User · DBConnection"],
+        ["Inheritance", "Reuse common state and behaviour", "LostItem / FoundItem extend Item"],
+        ["Polymorphism", "One reference, many runtime forms", "List<Item> · overridden methods"],
+        ["Abstraction", "Expose what, hide how", "abstract Item · AbstractJdbcDAO<T>"],
+        ["Interface", "A pure contract with many implementors", "GenericDAO · ItemDAO · Refreshable"],
+        ["Exceptional handling", "Custom exceptions, caught at the UI",
+         "ValidationException · DataAccessException"],
     ]
-    for i, (title, line, where, proof, color) in enumerate(quadrants):
-        x = M + (i % 2) * 6.06
-        y = 1.8 + (i // 2) * 2.25
-        box(s, x, y, 5.83, 2.03, fill=WHITE)
-        s.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(x + 0.28), Inches(y + 0.3),
-                           Inches(0.06), Inches(0.42)).fill.solid()
-        bar = s.shapes[-1]
-        bar.fill.fore_color.rgb = color
-        bar.line.fill.background()
-        text(s, x + 0.48, y + 0.24, 4.9, 0.35, title, 15, True, NAVY)
-        text(s, x + 0.48, y + 0.68, 5.05, 0.3, line, 11.5, False, TEXT)
-        text(s, x + 0.48, y + 1.05, 5.05, 0.3, where, 10, True, color, "Consolas")
-        text(s, x + 0.48, y + 1.42, 5.05, 0.35, proof, 9.5, False, MUTED, italic=True)
+    add_table(s, M, 1.78, CW, data, [0.21, 0.40, 0.39],
+              row_h=0.54, size=11.5, aligns=[PP_ALIGN.LEFT] * 3)
 
     notes(s, """
-These are not four separate examples bolted on; they are the same hierarchy seen from
-four angles.
+These are not seven separate examples bolted on; they are the same hierarchy and the
+same layers seen from seven angles — and every one of them has a job in the running
+application.
 """)
 
 
@@ -742,31 +733,38 @@ abstraction and polymorphism, this hierarchy is it.
 
 
 # ----------------------------------------------------------------------------
-#  12. Encapsulation / abstraction code
+#  12. Class / object / encapsulation / abstraction / interface code
 # ----------------------------------------------------------------------------
 def slide_12():
     s = new_slide()
-    chrome(s, "Encapsulation and abstraction", "Not just getters and setters — the object protects its invariants", 12)
+    chrome(s, "Class, object, encapsulation, abstraction, interface",
+           "The building blocks — enforced by the compiler, not by convention", 12)
 
-    text(s, M, 1.72, 5.6, 0.3, "ENCAPSULATION  ·  Item.java", 9.5, True, ACCENT, "Consolas")
-    code_block(s, M, 2.06, 5.8, 3.05, """private String title;                // no direct access
-private ItemStatus status = ItemStatus.OPEN;
+    text(s, M, 1.72, 5.6, 0.3, "CLASS & OBJECT + ENCAPSULATION  ·  LostItem.java",
+         9.5, True, ACCENT, "Consolas")
+    code_block(s, M, 2.06, 5.8, 3.05, """public class LostItem extends Item {    // class
+    private String contact;             // private state
+    private BigDecimal rewardOffered;
 
-public void setStatus(ItemStatus status) {
-    // invariant: status is never null
-    this.status = status == null
-            ? ItemStatus.OPEN : status;
+    public void setRewardOffered(BigDecimal rewardOffered) {
+        this.rewardOffered = rewardOffered == null
+                ? BigDecimal.ZERO : rewardOffered;   // never null
+    }
 }
 
-public String getTitle() { return title; }""", size=10)
+// object of that class, made by the report form:
+Item item = new LostItem(title, description,
+        category, location, date, reporter,
+        contact, reward, urgency);""", size=10)
 
-    text(s, M + 6.05, 1.72, 5.6, 0.3, "ABSTRACTION  ·  Item.java + GenericDAO.java", 9.5, True, ACCENT_DARK, "Consolas")
-    code_block(s, M + 6.05, 2.06, 5.83, 3.05, """public abstract class Item {
+    text(s, M + 6.05, 1.72, 5.6, 0.3, "ABSTRACTION + INTERFACE  ·  Item.java + GenericDAO.java",
+         9.5, True, ACCENT_DARK, "Consolas")
+    code_block(s, M + 6.05, 2.06, 5.83, 3.05, """public abstract class Item {            // abstraction
     public abstract ItemType getItemType();
     public abstract String getSpecificDetails();
 }
 
-public interface GenericDAO<T> {
+public interface GenericDAO<T> {        // interface
     T findById(int id);
     List<T> findAll();
     int insert(T entity);
@@ -775,26 +773,29 @@ public interface GenericDAO<T> {
 
     box(s, M, 5.38, CW, 1.05, fill=WHITE)
     text(s, M + 0.3, 5.52, CW - 0.6, 0.8,
-         "The UI never touches a field directly, and it never learns that JDBC exists. "
-         "Both pillars are enforced by the compiler, not by convention.",
+         "One class, one object, private state, an abstract super-type and a pure "
+         "interface: the UI never touches a field directly and never learns that "
+         "JDBC exists.",
          11.5, False, TEXT, spacing=1.3, anchor=MSO_ANCHOR.MIDDLE)
 
     notes(s, """
-Encapsulation is not just getters and setters: the setter enforces the invariant that
-status is never null. Abstraction means the UI asks "are you lost or found?" without
-knowing which class it holds, and the service asks the DAO for data without knowing
-that JDBC exists.
+Class and object first: LostItem is the blueprint, and the report form creates real
+objects of it with new. Encapsulation means the state is private and the setter guards
+the invariant — the reward can never become null. Abstraction is the abstract Item
+that refuses to exist on its own, and the interface GenericDAO is a pure contract: the
+service uses it without ever seeing JDBC.
 """)
 
 
 # ----------------------------------------------------------------------------
-#  13. Inheritance / polymorphism code
+#  13. Inheritance / polymorphism / exceptional handling code
 # ----------------------------------------------------------------------------
 def slide_13():
     s = new_slide()
-    chrome(s, "Inheritance and polymorphism", "One loop, no type checks, two behaviours", 13)
+    chrome(s, "Inheritance, polymorphism and exceptional handling",
+           "One loop, no type checks — and errors that cannot be ignored", 13)
 
-    text(s, M, 1.7, 6.6, 0.3, "INHERITANCE + DYNAMIC DISPATCH", 9.5, True, ACCENT, "Consolas")
+    text(s, M, 1.7, 6.6, 0.3, "INHERITANCE + POLYMORPHISM", 9.5, True, ACCENT, "Consolas")
     code_block(s, M, 2.02, 6.75, 3.3, """public class LostItem extends Item {
     @Override public ItemType getItemType() {
         return ItemType.LOST;
@@ -821,10 +822,23 @@ for (Item item : items) {
     add_table(s, M + 7.05, 2.02, 4.85, data, [0.12, 0.3, 0.58],
               row_h=0.58, size=9.5, aligns=[PP_ALIGN.LEFT] * 3)
 
-    box(s, M + 7.05, 4.15, 4.85, 1.15, fill=ACCENT_LIGHT, line=None, radius=0.06)
-    text(s, M + 7.25, 4.28, 4.45, 0.9,
-         "A new item type needs one new sub-class — this loop is never edited.",
-         10.5, True, ACCENT_DARK, spacing=1.25)
+    text(s, M + 7.05, 3.95, 4.85, 0.3,
+         "EXCEPTIONAL HANDLING  ·  ItemService + ReportItemPanel",
+         9.5, True, ACCENT, "Consolas")
+    code_block(s, M + 7.05, 4.25, 4.85, 2.1, """// service — throws the business exception
+if (isBlank(item.getTitle()) || item.getTitle().trim().length() < 4)
+    throw new ValidationException(
+            "Give the item a short title (at least 4 characters).");
+
+// UI — catches it, shows the message, the app keeps running
+try {
+    int id = itemService.reportItem(item);
+} catch (ValidationException ex) {        // bad input
+    showError(ex.getMessage());
+} catch (RuntimeException ex) {           // database failure
+    JOptionPane.showMessageDialog(this, ex.getMessage(),
+            "Database error", JOptionPane.ERROR_MESSAGE);
+}""", size=8.5)
 
     text(s, M, 5.55, 6.75, 0.5,
          "instanceof appears only in the DAO, where a table must be chosen.",
@@ -833,7 +847,9 @@ for (Item item : items) {
     notes(s, """
 The loop has no if-else on type. Java dispatches to the right override, which is
 exactly what polymorphism buys us: new item types can be added without editing this
-loop.
+loop. Exceptions travel the same way up the layers: the service throws
+ValidationException, the UI catches it and shows the message; a database failure is
+caught separately, so one bad row can never crash the application.
 """)
 
 
@@ -1155,7 +1171,7 @@ ClaimService.requireVerifier() throws if a student calls it directly.
 
 
 # ----------------------------------------------------------------------------
-#  20-22, 24. Module slides with screenshot slot
+#  20-23. Module slides with screenshot slot
 # ----------------------------------------------------------------------------
 def module_slide(number, title, subtitle, points, slot_title, extra=None):
     s = new_slide()
@@ -1189,8 +1205,8 @@ and the service receives either a LostItem or a FoundItem through the same metho
 def slide_21():
     s = module_slide(
         21, "Module 3: search and filter",
-        "Five filters, one parameterised query", [
-            "Filters: **keyword · category · location · report type · status**.",
+        "Six filters, one parameterised query", [
+            "Filters: **keyword · category · location · report type · status · date**.",
             "Any combination, executed as **one dynamic SQL query**.",
             "`ItemFilter` carries the criteria from UI to DAO.",
             "`PreparedStatement` binding → **SQL-injection safe**.",
@@ -1204,27 +1220,9 @@ Nothing from the user is ever concatenated into SQL.
 """)
 
 
-def slide_22():
+def slide_23():
     s = module_slide(
-        22, "Module 4: match suggestions",
-        "Scored pairs with a plain-English reason", [
-            "Rows are **lost ↔ found pairs**, highest score first.",
-            "Confidence: **Very High ≥ 90 · High ≥ 80 · Medium ≥ 70**.",
-            "Selecting a row explains the score in words.",
-            "Double-click opens the found item to submit a claim.",
-            "**Read-only report**: computed live, nothing stored, nothing stale.",
-        ],
-        "Match suggestions table",
-        "A new report appears in the list immediately — no nightly job, no cache to invalidate.")
-    notes(s, """
-Because the view is computed on demand, a new report appears in the match list
-immediately. There is no nightly job and no cache to invalidate.
-""")
-
-
-def slide_24():
-    s = module_slide(
-        24, "Module 6: reports and analytics",
+        23, "Module 5: reports and analytics",
         "The numbers the college actually needs", [
             "Counters: total reports, **recovery rate**, pending claims, total claims.",
             "Breakdowns: category, item status, claim status, monthly lost vs found.",
@@ -1241,11 +1239,11 @@ the paper register cannot do.
 
 
 # ----------------------------------------------------------------------------
-#  23. Claims and recovery
+#  22. Claims and recovery
 # ----------------------------------------------------------------------------
-def slide_23():
+def slide_22():
     s = new_slide()
-    chrome(s, "Module 5: claims and recovery", "Every claim is verified, every state change is audited", 23)
+    chrome(s, "Module 4: claims and recovery", "Every claim is verified, every state change is audited", 22)
 
     # state machine
     states = [("PENDING", 2.0, WARNING), ("APPROVED", 5.4, ACCENT), ("RECOVERED", 8.8, SUCCESS)]
@@ -1292,19 +1290,19 @@ so a second claimant cannot file, and the unique key blocks a duplicate claim an
 
 
 # ----------------------------------------------------------------------------
-#  25. UI tour
+#  24. UI tour
 # ----------------------------------------------------------------------------
-def slide_25():
+def slide_24():
     s = new_slide()
-    chrome(s, "User interface tour", "Six screens, one theme, consistent behaviour", 25)
+    chrome(s, "User interface tour", "Six screens, one theme, consistent behaviour", 24)
 
     slots = [
-        ("Dashboard", "Live counters + recent reports"),
+        ("Dashboard", "Quick-action cards + counters"),
         ("Report an item", "Dynamic lost / found form"),
         ("Search and claim", "Filtered table + detail dialog"),
-        ("Match suggestions", "Scored pairs + explanation"),
         ("Ownership claims", "Approve / reject / recover"),
         ("Reports and analytics", "GROUP BY summaries + CSV"),
+        ("Settings", "Profile, password, account"),
     ]
     for i, (title, caption) in enumerate(slots):
         x = M + (i % 3) * 4.09
@@ -1318,11 +1316,11 @@ than six separate assignments. Every table is sortable and refreshes on navigati
 
 
 # ----------------------------------------------------------------------------
-#  26. Testing
+#  25. Testing
 # ----------------------------------------------------------------------------
-def slide_26():
+def slide_25():
     s = new_slide()
-    chrome(s, "Testing", "Manual functional tests plus SQL-level verification", 26)
+    chrome(s, "Testing", "Manual functional tests plus SQL-level verification", 25)
 
     data = [
         ["#", "Test case", "Expected result", "Status"],
@@ -1353,11 +1351,11 @@ ten: the transaction is atomic, and authorisation does not depend on the UI.
 
 
 # ----------------------------------------------------------------------------
-#  27. Results
+#  26. Results
 # ----------------------------------------------------------------------------
-def slide_27():
+def slide_26():
     s = new_slide()
-    chrome(s, "Results", "Measured on the seeded database", 27)
+    chrome(s, "Results", "Measured on the seeded database", 26)
 
     cards = [
         ("14", "reports seeded (7 lost / 7 found)", ACCENT),
@@ -1387,11 +1385,11 @@ recovery rate and the item status update together.
 
 
 # ----------------------------------------------------------------------------
-#  28. Limitations and future scope
+#  27. Limitations and future scope
 # ----------------------------------------------------------------------------
-def slide_28():
+def slide_27():
     s = new_slide()
-    chrome(s, "Limitations and future scope", "Honest about what it is not — specific about what comes next", 28)
+    chrome(s, "Limitations and future scope", "Honest about what it is not — specific about what comes next", 27)
 
     box(s, M, 1.8, 5.85, 4.0, fill=WHITE)
     text(s, M + 0.3, 1.96, 4.0, 0.3, "CURRENT LIMITATIONS", 9.5, True, WARNING, "Consolas")
@@ -1424,11 +1422,11 @@ rewrite, because the layers are separated.
 
 
 # ----------------------------------------------------------------------------
-#  29. Conclusion
+#  28. Conclusion
 # ----------------------------------------------------------------------------
-def slide_29():
+def slide_28():
     s = new_slide()
-    chrome(s, "Conclusion", None, 29)
+    chrome(s, "Conclusion", None, 28)
 
     text(s, M, 1.75, CW, 1.0,
          "One database, one workflow,\nzero lost-and-found chaos.",
@@ -1457,9 +1455,9 @@ review, every concept we studied has a concrete job inside it.
 
 
 # ----------------------------------------------------------------------------
-#  30. Thank you
+#  29. Thank you
 # ----------------------------------------------------------------------------
-def slide_30():
+def slide_29():
     s = new_slide(NAVY)
 
     oval = s.shapes.add_shape(MSO_SHAPE.OVAL, Inches(9.2), Inches(3.4), Inches(5.6), Inches(5.6))
@@ -1506,7 +1504,7 @@ def build():
         slide_01, slide_02, slide_03, slide_04, slide_05, slide_06, slide_07, slide_08,
         slide_09, slide_10, slide_11, slide_12, slide_13, slide_14, slide_15, slide_16,
         slide_17, slide_18, slide_19, slide_20, slide_21, slide_22, slide_23, slide_24,
-        slide_25, slide_26, slide_27, slide_28, slide_29, slide_30,
+        slide_25, slide_26, slide_27, slide_28, slide_29,
     ]:
         builder()
 

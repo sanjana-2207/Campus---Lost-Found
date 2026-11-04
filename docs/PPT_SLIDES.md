@@ -1,6 +1,6 @@
 # PPT Deck — Campus Lost & Found Management System
 
-**30 slides · 16–18 minutes presentation + 5–7 minutes demo + Q&A**
+**29 slides · 16–18 minutes presentation + 5–7 minutes demo + Q&A**
 
 This file gives you, for every slide: the exact text to put on it, the visual to
 build, and what to say. Copy the bullets straight into PowerPoint; read the notes
@@ -126,7 +126,7 @@ college finally gets numbers."
 2. **Reduce recovery time** from weeks to hours through automatic matching
 3. Enforce **verified ownership** before an item is released
 4. Generate **management reports** (lost, found, claimed, recovered)
-5. Demonstrate practical use of **OOPS pillars** and **DBMS features** in one system
+5. Demonstrate practical use of all **seven OOPS topics** and **DBMS features** in one system
 
 **Speaker notes:** "Points one to four are the user-facing objectives. Point five
 is academic: this is not a CRUD toy, every concept in the syllabus is used because
@@ -245,22 +245,26 @@ makes the claim transaction reusable and the code testable."
 
 ## Slide 10 — OOPS at a glance
 
-**Layout:** Four quadrants, one pillar per quadrant, each with a one-line definition
+**Layout:** Seven-row table, one row per topic, each with a one-line definition
 and the project file where it appears.
 
 **On-slide text:**
 
-| Pillar | In one line | Where |
+| Topic | In one line | Where |
 |---|---|---|
+| **Class & Object** | Blueprint plus a live instance | `Item`, `LostItem`, `new LostItem(...)` |
 | **Encapsulation** | Data is private; behaviour is public | `Item`, `User`, `DBConnection` |
-| **Abstraction** | Expose *what*, hide *how* | `abstract Item`, `GenericDAO<T>` |
 | **Inheritance** | Reuse common state and behaviour | `LostItem/FoundItem extends Item` |
 | **Polymorphism** | One reference, many forms | `List<Item>`, overridden methods |
+| **Abstraction** | Expose *what*, hide *how* | `abstract Item`, `AbstractJdbcDAO<T>` |
+| **Interface** | A pure contract with many implementors | `GenericDAO<T>`, `ItemDAO`, `Refreshable` |
+| **Exceptional handling** | Custom exceptions, caught at the UI | `ValidationException`, `DataAccessException` |
 
-**Speaker notes:** "These are not four separate examples bolted on; they are the
-same hierarchy seen from four angles."
+**Speaker notes:** "These are not seven separate examples bolted on; they are the
+same hierarchy and the same layers seen from seven angles — and every one of them
+has a job in the running application."
 
-**Time:** 40 s
+**Time:** 50 s
 
 ---
 
@@ -300,51 +304,64 @@ example of inheritance, abstraction and polymorphism, this hierarchy is it."
 
 ---
 
-## Slide 12 — Encapsulation and abstraction in code
+## Slide 12 — Class, object, encapsulation, abstraction and interface in code
 
 **Layout:** Two code blocks side by side, dark background, syntax highlighting.
 
 **On-slide text:**
 
-**Encapsulation — `Item.java`**
+**Class & object + Encapsulation — `LostItem.java`**
 ```java
-private String title;          // no direct access
-private ItemStatus status = ItemStatus.OPEN;
+public class LostItem extends Item {        // class
+    private String contact;                 // private state
+    private BigDecimal rewardOffered;
 
-public void setStatus(ItemStatus status) {
-    this.status = status == null ? ItemStatus.OPEN : status;
+    public void setRewardOffered(BigDecimal rewardOffered) {
+        this.rewardOffered = rewardOffered == null
+                ? BigDecimal.ZERO : rewardOffered;   // never null
+    }
 }
+
+// object of that class, made by the report form:
+Item item = new LostItem(title, description,
+        category, location, date, reporter,
+        contact, reward, urgency);
 ```
 
-**Abstraction — `Item.java` + `GenericDAO.java`**
+**Abstraction + Interface — `Item.java` + `GenericDAO.java`**
 ```java
-public abstract class Item {
+public abstract class Item {                // abstraction
     public abstract ItemType getItemType();
     public abstract String getSpecificDetails();
 }
 
-public interface GenericDAO<T> {
+public interface GenericDAO<T> {            // interface
     T findById(int id);
+    List<T> findAll();
     int insert(T entity);
+    boolean update(T entity);
 }
 ```
 
-**Speaker notes:** "Encapsulation is not just getters and setters: the setter
-enforces the invariant that status is never null. Abstraction means the UI asks
-'are you lost or found?' without knowing which class it holds, and the service asks
-the DAO for data without knowing that JDBC exists."
+**Speaker notes:** "Class and object first: `LostItem` is the blueprint, and the
+report form creates real objects of it with `new`. Encapsulation means the state
+is private and the setter guards the invariant — the reward can never become
+null. Abstraction is the abstract `Item` that refuses to exist on its own, and
+the interface `GenericDAO` is a pure contract: the service uses it without ever
+seeing JDBC."
 
-**Time:** 60 s
+**Time:** 70 s
 
 ---
 
-## Slide 13 — Inheritance and polymorphism in code
+## Slide 13 — Inheritance, polymorphism and exceptional handling in code
 
-**Layout:** Code on the left, a runtime table on the right showing the same call
-producing different rows.
+**Layout:** Code on the left; runtime table top-right; exception-handling code
+bottom-right.
 
 **On-slide text:**
 
+**Inheritance + polymorphism — `LostItem.java` + search screen**
 ```java
 public class LostItem extends Item {
     @Override public ItemType getItemType() { return ItemType.LOST; }
@@ -366,11 +383,31 @@ for (Item item : items) {
 | 1 | `LostItem` | Contact / Reward / Urgency |
 | 2 | `FoundItem` | Storage / With security / Notes |
 
-**Speaker notes:** "The loop has no if-else on type. Java dispatches to the right
-override, which is exactly what polymorphism buys us: new item types can be added
-without editing this loop."
+**Exceptional handling — `ItemService.java` + `ReportItemPanel.java`**
+```java
+// service — throws the business exception
+if (isBlank(item.getTitle()) || item.getTitle().trim().length() < 4)
+    throw new ValidationException(
+            "Give the item a short title (at least 4 characters).");
 
-**Time:** 60 s
+// UI — catches it, shows the message, the app keeps running
+try {
+    int id = itemService.reportItem(item);
+} catch (ValidationException ex) {        // bad input
+    showError(ex.getMessage());
+} catch (RuntimeException ex) {           // database failure
+    JOptionPane.showMessageDialog(this, ex.getMessage(),
+            "Database error", JOptionPane.ERROR_MESSAGE);
+}
+```
+
+**Speaker notes:** "The loop has no if-else on type — Java dispatches to the
+right override, which is exactly what polymorphism buys us. And exceptions travel
+the same way up the layers: the service throws `ValidationException`, the UI
+catches it and shows the message; a database failure is caught separately, so one
+bad row can never crash the application."
+
+**Time:** 80 s
 
 ---
 
@@ -577,7 +614,7 @@ through the same method."
 
 **On-slide text:**
 
-- Filters: **keyword · category · location · report type · status**
+- Filters: **keyword · category · location · report type · status · date**
 - Any combination, all executed as **one parameterised SQL query**
 - `ItemFilter` object carries the criteria from UI to DAO
 - `PreparedStatement` binding → **SQL-injection safe**
@@ -591,26 +628,7 @@ the difference between a demo and a safe application."
 
 ---
 
-## Slide 22 — Module 4: match suggestions
-
-**Layout:** Screenshot of the matches screen with the explanation strip visible.
-
-**On-slide text:**
-
-- Rows are **lost ↔ found pairs**, highest score first
-- Confidence labels: Very High (≥90) · High (≥80) · Medium (≥70)
-- Selecting a row explains the reason in plain English
-- Double-click opens the found item to submit a claim
-- **Read-only report**: computed live, no stale data stored
-
-**Speaker notes:** "Because the view is computed on demand, a new report appears in
-the match list immediately. There is no nightly job and no cache to invalidate."
-
-**Time:** 50 s
-
----
-
-## Slide 23 — Module 5: claims and recovery
+## Slide 22 — Module 4: claims and recovery
 
 **Layout:** Screenshot of the claims screen + a state machine strip at the bottom.
 
@@ -635,7 +653,7 @@ duplicate claim anyway."
 
 ---
 
-## Slide 24 — Module 6: reports and analytics
+## Slide 23 — Module 5: reports and analytics
 
 **Layout:** Screenshot of the reports screen.
 
@@ -654,10 +672,9 @@ handover is recorded, which the paper register cannot do."
 
 ---
 
-## Slide 25 — User interface tour
+## Slide 24 — User interface tour
 
-**Layout:** 2×3 montage of screenshots: dashboard, report form, search, matches,
-claims, reports.
+**Layout:** Montage of screenshots: dashboard, report form, search, claims, reports, settings.
 
 **On-slide text:**
 
@@ -673,7 +690,7 @@ like a product rather than six separate assignments."
 
 ---
 
-## Slide 26 — Testing
+## Slide 25 — Testing
 
 **Layout:** Test-case table, 8–10 rows, colour-coded Pass column.
 
@@ -702,7 +719,7 @@ not depend on the UI."
 
 ---
 
-## Slide 27 — Results
+## Slide 26 — Results
 
 **Layout:** Four big numbers + one sentence.
 
@@ -723,7 +740,7 @@ then the dashboard recovery rate and the item status update together."
 
 ---
 
-## Slide 28 — Limitations and future scope
+## Slide 27 — Limitations and future scope
 
 **Layout:** Two columns: limitations (honest) / next steps (ambitious).
 
@@ -749,7 +766,7 @@ extension rather than a rewrite, because the layers are separated."
 
 ---
 
-## Slide 29 — Conclusion
+## Slide 28 — Conclusion
 
 **Layout:** Large statement + three supporting lines.
 
@@ -769,7 +786,7 @@ importantly for this review, every concept we studied has a concrete job inside 
 
 ---
 
-## Slide 30 — Thank you / Q&A
+## Slide 29 — Thank you / Q&A
 
 **Layout:** Navy background, centred text.
 
@@ -795,12 +812,12 @@ screen live - including the database transaction behind the approve button."
 | 0:00–1:00 | 1–2 | Title, agenda |
 | 1:00–4:00 | 3–7 | Problem, solution, objectives, scope, gap analysis |
 | 4:00–6:00 | 8–9 | Stack and architecture |
-| 6:00–10:00 | 10–13 | OOPS design and code |
-| 10:00–14:00 | 14–18 | Database, SQL, transactions, matching |
-| 14:00–17:00 | 19–24 | Module walkthrough |
-| 17:00–18:00 | 25–30 | UI, testing, results, limits, conclusion |
+| 6:00–10:30 | 10–13 | OOPS design and code |
+| 10:30–14:00 | 14–18 | Database, SQL, transactions, matching |
+| 14:00–17:00 | 19–23 | Module walkthrough |
+| 17:00–18:00 | 24–29 | UI, testing, results, limits, conclusion |
 
-**Demo (5–7 min) after slide 24 or after the deck:** see the script in
+**Demo (5–7 min) after slide 23 or after the deck:** see the script in
 `docs/SETUP_AND_DEMO.md` (section 8).
 
 ---
@@ -811,7 +828,7 @@ screen live - including the database transaction behind the approve button."
    a foreign key, and show that no half-updated row remains. Very few projects can
    demonstrate rollback.
 2. **Show the view behind the match.** Run
-   `SELECT * FROM vw_potential_matches;` in MySQL and then the same list in the UI.
+   `SELECT * FROM vw_potential_matches;` in MySQL to see the scored candidate pairs.
 3. **Show the trigger.** Approve a claim, then run
    `SELECT * FROM item_status_history ORDER BY history_id DESC;` - the row was
    written by the database, not by Java.

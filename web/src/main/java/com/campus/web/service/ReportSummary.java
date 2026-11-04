@@ -2,7 +2,6 @@ package com.campus.web.service;
 
 import com.campus.web.model.ClaimStatus;
 import com.campus.web.model.ItemStatus;
-import com.campus.web.model.ItemType;
 
 import java.util.LinkedHashMap;
 import java.util.Map;

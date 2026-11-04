@@ -6,6 +6,7 @@ import com.campus.lostfound.model.ItemStatus;
 import com.campus.lostfound.service.ReportService;
 import com.campus.lostfound.service.ReportSummary;
 import com.campus.lostfound.util.Async;
+import com.campus.lostfound.util.DateFormats;
 
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -37,6 +38,7 @@ public class ReportsPanel extends JPanel implements Refreshable {
     private static final long serialVersionUID = 1L;
 
     private final ReportService reportService;
+    private final Runnable onBack;
 
     private final JLabel totalValue = new JLabel("0");
     private final JLabel recoveryValue = new JLabel("0%");
@@ -54,8 +56,9 @@ public class ReportsPanel extends JPanel implements Refreshable {
 
     private ReportSummary summary;
 
-    public ReportsPanel(ReportService reportService) {
+    public ReportsPanel(ReportService reportService, Runnable onBack) {
         this.reportService = reportService;
+        this.onBack = onBack;
 
         setLayout(new BorderLayout(0, 16));
         setBackground(UIStyle.BG);
@@ -83,8 +86,10 @@ public class ReportsPanel extends JPanel implements Refreshable {
         subtitle.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         text.add(title);
-        text.add(Box.createVerticalStrut(4));
+        text.add(Box.createVerticalStrut(2));
         text.add(subtitle);
+        text.add(Box.createVerticalStrut(8));
+        text.add(UIStyle.backLink(onBack));
         header.add(text, BorderLayout.WEST);
 
         JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
@@ -187,7 +192,7 @@ public class ReportsPanel extends JPanel implements Refreshable {
             allMonths.addAll(summary.getMonthlyFound().keySet());
             for (String month : allMonths) {
                 months.add(new Object[]{
-                        month,
+                        DateFormats.month(month),
                         valueOrZero(summary.getMonthlyLost(), month),
                         valueOrZero(summary.getMonthlyFound(), month)});
             }

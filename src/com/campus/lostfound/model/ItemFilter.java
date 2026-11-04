@@ -1,6 +1,7 @@
 package com.campus.lostfound.model;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 
 /**
  * Search criteria collected from the Search screen.
@@ -27,6 +28,9 @@ public class ItemFilter {
     private String keyword;
     private LocalDate fromDate;
     private LocalDate toDate;
+    private LocalTime fromTime;
+    private LocalTime toTime;
+    private boolean claimableOnly;
 
     public ItemType getItemType() {
         return itemType;
@@ -97,6 +101,41 @@ public class ItemFilter {
 
     public ItemFilter setToDate(LocalDate toDate) {
         this.toDate = toDate;
+        return this;
+    }
+
+    /** Earliest report time-of-day, inclusive. */
+    public LocalTime getFromTime() {
+        return fromTime;
+    }
+
+    public ItemFilter setFromTime(LocalTime fromTime) {
+        this.fromTime = fromTime;
+        return this;
+    }
+
+    /** Latest report time-of-day, inclusive. */
+    public LocalTime getToTime() {
+        return toTime;
+    }
+
+    public ItemFilter setToTime(LocalTime toTime) {
+        this.toTime = toTime;
+        return this;
+    }
+
+    /**
+     * When true, only FOUND reports that are still OPEN or MATCHED are
+     * returned. Used by the Search and claim screen: reserved/claimed and
+     * recovered items are no longer claimable, but they stay in the database
+     * for the reports and analytics screens.
+     */
+    public boolean isClaimableOnly() {
+        return claimableOnly;
+    }
+
+    public ItemFilter setClaimableOnly(boolean claimableOnly) {
+        this.claimableOnly = claimableOnly;
         return this;
     }
 }

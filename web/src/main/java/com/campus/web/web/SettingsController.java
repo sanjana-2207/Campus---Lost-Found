@@ -1,6 +1,5 @@
 package com.campus.web.web;
 
-import com.campus.web.model.User;
 import com.campus.web.service.UserService;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;

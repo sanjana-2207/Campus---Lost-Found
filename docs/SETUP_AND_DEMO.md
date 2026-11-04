@@ -183,26 +183,28 @@ Rehearse this once end-to-end. It is ordered so each step sets up the next.
 
 ### Step 2 — Report a lost item (60 s)
 
-1. **Report an item** → keep "I lost an item".
+1. Click the **I lost an item** card on the dashboard → the report form opens with
+   "I lost an item" already selected.
 2. Title: `Black Dell laptop charger`
    Description: `65W charger with a white label on the cable, lost after the DBMS lab.`
-3. Category: Electronics · Location: CS Block · Date: today.
+3. Category: Electronics · Location: C Block · Date: today.
 4. Contact is pre-filled from the account. Reward: `100`. Urgency: Medium.
 5. Submit → note the report number in the confirmation.
 6. Say: *"This wrote two rows - `items` and `lost_items` - in a single transaction."*
 
-### Step 3 — Find the match (50 s)
+### Step 3 — Find the pair in Search (50 s)
 
-1. **Match suggestions**.
-2. Show the new pair at the top: *Dell charger (lost)* ↔ *Dell 65W charger with black
-   cable (found)*, score 100, confidence Very High.
-3. Click the row → read the explanation strip aloud.
-4. Say: *"This list is a view. The scoring is pure SQL, not Java loops."*
+1. **Search and claim** → keyword `charger` → **Search**.
+2. Show both rows: *Black Dell laptop charger* (lost) and *Dell 65W charger with black
+   cable (found)* — same category, one day apart, both in C Block.
+3. Optional: set **Date** to *On* `2026-10-11` → only the found report remains.
+4. Say: *"All six filters - keyword, category, location, report type, status and date -
+   run as one parameterised SQL query."*
 
 ### Step 4 — Submit a claim (60 s)
 
-1. Double-click the match → the found item opens.
-2. Write proof: `Black 65W Dell charger, white label on the cable, lost in CS Block Lab 3 on Monday.`
+1. Double-click the found report → the detail dialog opens.
+2. Write proof: `Black 65W Dell charger, white label on the cable, lost in C Block Lab 3 on Monday.`
 3. Submit claim → claim is PENDING.
 4. Say: *"The claimant cannot be the reporter, the item must still be open, and the
    database has a unique key preventing a second claim."*
@@ -210,7 +212,8 @@ Rehearse this once end-to-end. It is ordered so each step sets up the next.
 ### Step 5 — Switch to staff and verify (70 s)
 
 1. **Sign out** → sign in as `security@campus.edu / staff123`.
-2. **Ownership claims** → the new claim is at the top of *All claims*.
+2. Open **Dashboard** → click the **Claims awaiting verification** counter → the new
+   claim is at the top of *All claims*.
 3. Select it → **Approve** → remarks `Matched with the owner's description.`
 4. Point out: claim becomes APPROVED, item becomes CLAIMED, competing claims close.
 5. Say: *"Three statements, one transaction. Any failure and everything rolls back."*
@@ -221,12 +224,22 @@ Rehearse this once end-to-end. It is ordered so each step sets up the next.
 2. Open **Dashboard**: recovered count increased, recovery rate changed.
 3. Say: *"The audit row was written by the database trigger, not by Java."*
 
-### Step 7 — Reports and finish (50 s)
+### Step 7 — Reports and CSV export (50 s)
 
 1. **Reports** → category table, status table, monthly trend.
 2. **Export summary** → save to the Desktop → open the CSV in Excel.
 3. Optional: run `SELECT * FROM item_status_history ORDER BY history_id DESC;` in
    Workbench to show the trigger output.
+
+### Step 8 — Account settings (40 s)
+
+1. **Settings** in the sidebar → three cards: Profile, Change Password, Account.
+2. Edit the phone number → **Save Profile** → confirmation dialog, then point at
+   the updated name in the header.
+3. Enter a wrong current password → **Change Password** is rejected; then change it
+   successfully (log out and back in with the new password if there is time).
+4. Say: *"Profile and password rules live in the service layer, and the password is
+   stored as a PBKDF2 hash, never in plain text."*
 
 ---
 
@@ -242,7 +255,7 @@ Rehearse this once end-to-end. It is ordered so each step sets up the next.
 | 6 | Future date | spinner max = today | Cannot select a future date | Pass |
 | 7 | Empty description | submit | Validation error | Pass |
 | 8 | Negative reward | `-50` | Validation error | Pass |
-| 9 | Filter by category + location | Electronics + CS Block | Only those rows | Pass |
+| 9 | Filter by category + location | Electronics + C Block | Only those rows | Pass |
 | 10 | Keyword search | `charger` | Title/description matches | Pass |
 | 11 | Claim own item | open own report | Claim form hidden | Pass |
 | 12 | Duplicate claim | submit twice | Blocked by service + unique key | Pass |
@@ -252,6 +265,10 @@ Rehearse this once end-to-end. It is ordered so each step sets up the next.
 | 16 | Student calls approve | role check | ValidationException | Pass |
 | 17 | CSV export | Reports → export | Valid file, opens in Excel | Pass |
 | 18 | MySQL stopped | start app | Friendly message, no stack trace | Pass |
+| 19 | Save profile | Settings → change phone → Save | "profile has been saved", header shows new name | Pass |
+| 20 | Duplicate e-mail in profile | enter another user's e-mail | "already used by another account" | Pass |
+| 21 | Wrong current password | Settings → change password | "Your current password is incorrect" | Pass |
+| 22 | Mismatched new password | different confirm value | "The two passwords do not match" | Pass |
 
 ---
 
@@ -267,7 +284,6 @@ Rehearse this once end-to-end. It is ordered so each step sets up the next.
 | `Public Key Retrieval is not allowed` | old JDBC URL | keep `allowPublicKeyRetrieval=true` |
 | `The server time zone value ... is unrecognized` | missing timezone | keep `serverTimezone=UTC` |
 | Login window never appears | startup exception | run `run.bat` from a terminal to see the message |
-| Matches screen is empty | no candidate pairs in seed data | re-import the schema |
 | CSV opens with strange characters | Excel locale | the file is UTF-8 with BOM; open via *Data → From Text* if needed |
 | Colours look wrong | non-Windows LAF | expected; layout still works, fonts fall back |
 
@@ -291,9 +307,9 @@ Take these at 1280×800, with realistic data:
 - [ ] Report form switched to "I found an item" (shows the CardLayout)
 - [ ] Search results with filters applied
 - [ ] Item detail dialog with the claim box
-- [ ] Match suggestions with the explanation strip
 - [ ] Claims screen with an approved row
 - [ ] Reports screen with all four tables
+- [ ] Settings screen with the profile card filled in
 - [ ] Workbench showing `vw_potential_matches`
 - [ ] Workbench showing `item_status_history` after a recovery
 

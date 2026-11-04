@@ -15,6 +15,8 @@ public class User {
     private String fullName;
     private String email;
     private String phone;
+    private String gender;
+    private String studentId;
     private String passwordHash;
     private Role role = Role.STUDENT;
     private Timestamp createdAt;
@@ -72,6 +74,22 @@ public class User {
 
     public void setPhone(String phone) {
         this.phone = phone;
+    }
+
+    public String getGender() {
+        return gender;
+    }
+
+    public void setGender(String gender) {
+        this.gender = gender;
+    }
+
+    public String getStudentId() {
+        return studentId;
+    }
+
+    public void setStudentId(String studentId) {
+        this.studentId = studentId;
     }
 
     public String getPasswordHash() {

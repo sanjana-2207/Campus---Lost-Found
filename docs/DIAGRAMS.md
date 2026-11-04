@@ -263,8 +263,8 @@ External dependency: MySQL Server
 ┌────────────────────────────────────────────────────────────────────────┐
 │                        PRESENTATION LAYER                              │
 │  LoginFrame · MainFrame                                                │
-│  DashboardPanel · ReportItemPanel · SearchPanel · MatchesPanel          │
-│  ClaimsPanel · ReportsPanel · ItemDetailDialog · UIStyle               │
+│  DashboardPanel · ReportItemPanel · SearchPanel · ClaimsPanel          │
+│  ReportsPanel · SettingsPanel · ItemDetailDialog · UIStyle             │
 │  (Swing/AWT only - no SQL, no JDBC imports)                            │
 └───────────────────────────────┬────────────────────────────────────────┘
                                 │ method calls (domain objects)
@@ -395,23 +395,6 @@ Staff        ClaimsPanel        ClaimService        ClaimDAO / ItemDAO      MySQ
  │              │◄───────────────────┤ ok                 │                  │
  │◄─────────────┤ refresh            │                    │                  │
  │              │                    │ on exception: ROLLBACK ──► no changes │
-```
-
-### 6.4 Matching query
-
-```
-MatchesPanel       JdbcItemDAO                 MySQL (view)
-     │                  │                          │
-     │ refreshData()    │                          │
-     ├─────────────────►│ SELECT * FROM            │
-     │                  │ vw_potential_matches     │
-     │                  ├─────────────────────────►│ join items lo × fo
-     │                  │                          │ same category + location
-     │                  │                          │ ≤ 30 days, both open
-     │                  │                          │ compute score, sort
-     │                  │◄─────────────────────────┤ rows
-     │◄─────────────────┤ List<MatchResult>        │
-     │ render + explain │                          │
 ```
 
 ---

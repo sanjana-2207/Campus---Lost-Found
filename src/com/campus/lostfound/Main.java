@@ -42,7 +42,7 @@ public final class Main {
                 } catch (RuntimeException ex) {
                     JOptionPane.showMessageDialog(null,
                             ex.getMessage(),
-                            "Cannot start Campus Lost & Found",
+                            "Cannot start REC Lost & Found",
                             JOptionPane.ERROR_MESSAGE);
                     System.exit(1);
                 }

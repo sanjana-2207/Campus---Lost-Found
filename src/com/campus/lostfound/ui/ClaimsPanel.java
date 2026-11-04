@@ -5,6 +5,7 @@ import com.campus.lostfound.model.Claim;
 import com.campus.lostfound.model.ClaimStatus;
 import com.campus.lostfound.service.ClaimService;
 import com.campus.lostfound.util.Async;
+import com.campus.lostfound.util.DateFormats;
 import com.campus.lostfound.util.SessionContext;
 
 import javax.swing.BorderFactory;
@@ -36,25 +37,33 @@ public class ClaimsPanel extends JPanel implements Refreshable {
     private static final long serialVersionUID = 1L;
 
     private final ClaimService claimService;
+    private final Runnable onBack;
 
     private final ListTableModel allModel = new ListTableModel(new String[]{
             "ID", "Item", "Claimant", "Submitted", "Status", "Verified by",
             "Proof of ownership", "Remarks"});
     private final ListTableModel myModel = new ListTableModel(new String[]{
             "ID", "Item", "Submitted", "Status", "Remarks", "Proof"});
+    private final ListTableModel reportedModel = new ListTableModel(new String[]{
+            "ID", "Item", "Claimant", "Submitted", "Claim status", "Remarks"});
 
     private final JTable allTable = new JTable(allModel);
     private final JTable myTable = new JTable(myModel);
+    private final JTable reportedTable = new JTable(reportedModel);
 
     private final List<Claim> allClaims = new ArrayList<Claim>();
     private final List<Claim> myClaims = new ArrayList<Claim>();
+    private final List<Claim> reportedClaims = new ArrayList<Claim>();
 
     private final JButton approveButton = UIStyle.successButton("Approve");
     private final JButton rejectButton = UIStyle.dangerButton("Reject");
     private final JButton recoverButton = UIStyle.primaryButton("Mark recovered");
+    private final JButton confirmButton =
+            UIStyle.successButton("Confirm owner received item");
 
-    public ClaimsPanel(ClaimService claimService) {
+    public ClaimsPanel(ClaimService claimService, Runnable onBack) {
         this.claimService = claimService;
+        this.onBack = onBack;
 
         setLayout(new BorderLayout(0, 16));
         setBackground(UIStyle.BG);
@@ -67,6 +76,7 @@ public class ClaimsPanel extends JPanel implements Refreshable {
             tabs.addTab("All claims", buildAllClaimsPanel());
         }
         tabs.addTab("My claims", buildMyClaimsPanel());
+        tabs.addTab("My reported items", buildReportedClaimsPanel());
         add(tabs, BorderLayout.CENTER);
 
         wireActions();
@@ -84,16 +94,18 @@ public class ClaimsPanel extends JPanel implements Refreshable {
         text.setOpaque(false);
         text.setLayout(new BoxLayout(text, BoxLayout.Y_AXIS));
 
-        JLabel title = UIStyle.heading("Ownership claims");
+        JLabel title = UIStyle.heading("Claims & Handovers");
         title.setAlignmentX(Component.LEFT_ALIGNMENT);
         JLabel subtitle = UIStyle.subtitle(SessionContext.isVerifier()
-                ? "Verify proof of ownership, then hand the item over and mark it recovered."
-                : "Track the claims you have submitted and their verification status.");
+                ? "Verify proof of ownership; finders confirm the final handover."
+                : "Track your claims, and confirm handovers for items you reported.");
         subtitle.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         text.add(title);
-        text.add(Box.createVerticalStrut(4));
+        text.add(Box.createVerticalStrut(2));
         text.add(subtitle);
+        text.add(Box.createVerticalStrut(8));
+        text.add(UIStyle.backLink(onBack));
         header.add(text, BorderLayout.WEST);
 
         JButton refresh = UIStyle.secondaryButton("Refresh");
@@ -112,8 +124,9 @@ public class ClaimsPanel extends JPanel implements Refreshable {
         card.setLayout(new BorderLayout(0, 10));
 
         JLabel hint = UIStyle.muted(
-                "Approve verifies the owner and reserves the item; mark recovered "
-                + "records the physical handover.");
+                "Approve verifies the owner and reserves the item. The finder confirms "
+                + "the physical handover from My reported items; mark recovered is a "
+                + "staff override.");
         card.add(hint, BorderLayout.NORTH);
 
         UIStyle.styleTable(allTable);
@@ -167,13 +180,50 @@ public class ClaimsPanel extends JPanel implements Refreshable {
         return panel;
     }
 
+    private JComponent buildReportedClaimsPanel() {
+        JPanel panel = new JPanel(new BorderLayout(0, 12));
+        panel.setBackground(UIStyle.BG);
+        panel.setBorder(BorderFactory.createEmptyBorder(14, 0, 0, 0));
+
+        JPanel card = UIStyle.card();
+        card.setLayout(new BorderLayout(0, 10));
+
+        card.add(UIStyle.muted(
+                "After staff approve a claim on an item you reported, confirm the "
+                + "physical handover here. The item then leaves Search and claim and "
+                + "stays only in Reports and analytics."),
+                BorderLayout.NORTH);
+
+        UIStyle.styleTable(reportedTable);
+        reportedTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        reportedTable.getColumnModel().getColumn(0).setPreferredWidth(45);
+        reportedTable.getColumnModel().getColumn(1).setPreferredWidth(260);
+        reportedTable.getColumnModel().getColumn(2).setPreferredWidth(150);
+        reportedTable.getColumnModel().getColumn(3).setPreferredWidth(130);
+        reportedTable.getColumnModel().getColumn(4).setPreferredWidth(100);
+        reportedTable.getColumnModel().getColumn(4).setCellRenderer(new StatusCellRenderer());
+        reportedTable.getColumnModel().getColumn(5).setPreferredWidth(280);
+
+        card.add(UIStyle.scroll(reportedTable), BorderLayout.CENTER);
+
+        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        actions.setOpaque(false);
+        actions.add(confirmButton);
+        card.add(actions, BorderLayout.SOUTH);
+
+        panel.add(card, BorderLayout.CENTER);
+        return panel;
+    }
+
     private void wireActions() {
         allTable.getSelectionModel().addListSelectionListener(event -> updateButtons());
+        reportedTable.getSelectionModel().addListSelectionListener(event -> updateButtons());
         updateButtons();
 
         approveButton.addActionListener(event -> decide(true));
         rejectButton.addActionListener(event -> decide(false));
         recoverButton.addActionListener(event -> markRecovered());
+        confirmButton.addActionListener(event -> confirmHandover());
     }
 
     // ==================================================================
@@ -188,12 +238,16 @@ public class ClaimsPanel extends JPanel implements Refreshable {
 
         Async.run(() -> new Snapshot(
                         verifier ? claimService.allClaims() : new ArrayList<Claim>(),
-                        loggedIn ? claimService.claimsOf(userId) : new ArrayList<Claim>()),
+                        loggedIn ? claimService.claimsOf(userId) : new ArrayList<Claim>(),
+                        loggedIn ? claimService.claimsOnMyReports(userId)
+                                : new ArrayList<Claim>()),
                 snapshot -> {
                     allClaims.clear();
                     allClaims.addAll(snapshot.all);
                     myClaims.clear();
                     myClaims.addAll(snapshot.mine);
+                    reportedClaims.clear();
+                    reportedClaims.addAll(snapshot.reported);
 
                     List<Object[]> allRows = new ArrayList<Object[]>();
                     for (Claim claim : allClaims) {
@@ -201,7 +255,7 @@ public class ClaimsPanel extends JPanel implements Refreshable {
                                 claim.getClaimId(),
                                 "#" + claim.getItem().getItemId() + "  " + claim.getItemTitle(),
                                 claim.getClaimantName(),
-                                claim.getSubmittedAt(),
+                                DateFormats.dateTime(claim.getSubmittedAt()),
                                 claim.getStatus().getLabel(),
                                 claim.getVerifierName(),
                                 claim.getProof(),
@@ -214,25 +268,39 @@ public class ClaimsPanel extends JPanel implements Refreshable {
                         myRows.add(new Object[]{
                                 claim.getClaimId(),
                                 "#" + claim.getItem().getItemId() + "  " + claim.getItemTitle(),
-                                claim.getSubmittedAt(),
+                                DateFormats.dateTime(claim.getSubmittedAt()),
                                 claim.getStatus().getLabel(),
                                 claim.getRemarks(),
                                 claim.getProof()});
                     }
                     myModel.setRows(myRows);
+
+                    List<Object[]> reportedRows = new ArrayList<Object[]>();
+                    for (Claim claim : reportedClaims) {
+                        reportedRows.add(new Object[]{
+                                claim.getClaimId(),
+                                "#" + claim.getItem().getItemId() + "  " + claim.getItemTitle(),
+                                claim.getClaimantName(),
+                                DateFormats.dateTime(claim.getSubmittedAt()),
+                                claim.getStatus().getLabel(),
+                                claim.getRemarks()});
+                    }
+                    reportedModel.setRows(reportedRows);
                     updateButtons();
                 },
                 error -> Async.showError(this, error, "Could not load claims"));
     }
 
-    /** Immutable result of the two background queries. */
+    /** Immutable result of the three background queries. */
     private static final class Snapshot {
         private final List<Claim> all;
         private final List<Claim> mine;
+        private final List<Claim> reported;
 
-        private Snapshot(List<Claim> all, List<Claim> mine) {
+        private Snapshot(List<Claim> all, List<Claim> mine, List<Claim> reported) {
             this.all = all;
             this.mine = mine;
+            this.reported = reported;
         }
     }
 
@@ -244,6 +312,10 @@ public class ClaimsPanel extends JPanel implements Refreshable {
         approveButton.setEnabled(pending);
         rejectButton.setEnabled(pending);
         recoverButton.setEnabled(approved);
+
+        Claim reported = selectedReportedClaim();
+        confirmButton.setEnabled(reported != null
+                && reported.getStatus() == ClaimStatus.APPROVED);
     }
 
     private Claim selectedClaim() {
@@ -253,6 +325,16 @@ public class ClaimsPanel extends JPanel implements Refreshable {
         }
         int modelRow = allTable.convertRowIndexToModel(viewRow);
         return modelRow >= 0 && modelRow < allClaims.size() ? allClaims.get(modelRow) : null;
+    }
+
+    private Claim selectedReportedClaim() {
+        int viewRow = reportedTable.getSelectedRow();
+        if (viewRow < 0) {
+            return null;
+        }
+        int modelRow = reportedTable.convertRowIndexToModel(viewRow);
+        return modelRow >= 0 && modelRow < reportedClaims.size()
+                ? reportedClaims.get(modelRow) : null;
     }
 
     // ==================================================================
@@ -330,10 +412,56 @@ public class ClaimsPanel extends JPanel implements Refreshable {
         });
     }
 
+    /**
+     * Finder-side final step: after staff verified the owner, the person who
+     * reported the found item confirms the physical handover. This hides the
+     * item from Search and claim (it becomes RECOVERED) while it remains in the
+     * reports and analytics aggregates.
+     */
+    private void confirmHandover() {
+        Claim claim = selectedReportedClaim();
+        if (claim == null) {
+            return;
+        }
+        if (claim.getStatus() != ClaimStatus.APPROVED) {
+            JOptionPane.showMessageDialog(this,
+                    "Only an approved claim can be confirmed as handed over.",
+                    "Not ready", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
+        int choice = JOptionPane.showConfirmDialog(this,
+                "Confirm that you handed over \"#" + claim.getItem().getItemId()
+                + "  " + claim.getItemTitle() + "\" to " + claim.getClaimantName() + "?",
+                "Confirm handover", JOptionPane.YES_NO_OPTION,
+                JOptionPane.QUESTION_MESSAGE);
+
+        if (choice != JOptionPane.YES_OPTION) {
+            return;
+        }
+
+        setActionsBusy(true);
+        Async.run(() -> {
+            claimService.confirmHandover(claim, SessionContext.getCurrentUser());
+            return Boolean.TRUE;
+        }, ignored -> {
+            setActionsBusy(false);
+            JOptionPane.showMessageDialog(this,
+                    "Handover confirmed. The item is now archived for reports and "
+                    + "will no longer appear in Search and claim.",
+                    "Handover confirmed", JOptionPane.INFORMATION_MESSAGE);
+            refreshData();
+        }, error -> {
+            setActionsBusy(false);
+            showActionError(error);
+        });
+    }
+
     private void setActionsBusy(boolean busy) {
         approveButton.setEnabled(!busy);
         rejectButton.setEnabled(!busy);
         recoverButton.setEnabled(!busy);
+        confirmButton.setEnabled(!busy);
         if (!busy) {
             updateButtons();
         }

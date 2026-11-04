@@ -1,168 +1,362 @@
 package com.campus.lostfound.ui;
 
-import com.campus.lostfound.model.Item;
-import com.campus.lostfound.service.ItemService;
+import com.campus.lostfound.model.User;
 import com.campus.lostfound.service.ReportService;
-import com.campus.lostfound.service.ReportSummary;
 import com.campus.lostfound.util.Async;
+import com.campus.lostfound.util.SessionContext;
 
+import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.JTable;
-import javax.swing.SwingConstants;
+import javax.swing.JScrollPane;
+import javax.swing.Scrollable;
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.Component;
+import java.awt.Dimension;
+import java.awt.FlowLayout;
+import java.awt.GradientPaint;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.GridLayout;
-import java.util.ArrayList;
-import java.util.List;
+import java.awt.Rectangle;
+import java.awt.RenderingHints;
 
 /**
- * Landing screen: four live counters plus the ten most recent reports.
+ * FINDIT-style dashboard: purple welcome hero, live stat cards and quick
+ * actions. Lost-item reporting stays out of scope; the lost counters remain as
+ * analytics for the reports screen.
  */
 public class DashboardPanel extends JPanel implements Refreshable {
 
     private static final long serialVersionUID = 1L;
 
-    private final ItemService itemService;
+    public interface HomeNavigator {
+        void openReport();
+
+        void openFoundItems();
+
+        void openMatches();
+
+        void openMyReports();
+
+        void openNotifications();
+
+        void openClaims();
+
+        void openReports();
+    }
+
     private final ReportService reportService;
+    private final HomeNavigator navigator;
 
     private final JLabel lostValue = new JLabel("0");
     private final JLabel foundValue = new JLabel("0");
     private final JLabel pendingValue = new JLabel("0");
     private final JLabel recoveredValue = new JLabel("0");
-    private final JLabel rateLabel = new JLabel("Recovery rate 0%");
+    private final JLabel rateValue = new JLabel("0%");
 
-    private final ListTableModel tableModel = new ListTableModel(new String[]{
-            "ID", "Type", "Title", "Category", "Location", "Date", "Status", "Reported by"});
-
-    public DashboardPanel(ItemService itemService, ReportService reportService) {
-        this.itemService = itemService;
+    public DashboardPanel(ReportService reportService, HomeNavigator navigator) {
         this.reportService = reportService;
+        this.navigator = navigator;
 
-        setLayout(new BorderLayout(0, 16));
+        setLayout(new BorderLayout());
         setBackground(UIStyle.BG);
-
-        add(buildHeader(), BorderLayout.NORTH);
-
-        JPanel body = new JPanel(new BorderLayout(0, 16));
-        body.setOpaque(false);
-        body.add(buildCounters(), BorderLayout.NORTH);
-        body.add(buildRecentCard(), BorderLayout.CENTER);
-        add(body, BorderLayout.CENTER);
+        add(buildScrollablePage(), BorderLayout.CENTER);
     }
 
-    private JComponent buildHeader() {
-        JPanel header = new JPanel(new BorderLayout());
-        header.setOpaque(false);
+    private JComponent buildScrollablePage() {
+        JPanel page = new HomePage();
+        page.setOpaque(false);
+        page.setLayout(new BorderLayout());
 
-        JPanel text = new JPanel();
-        text.setOpaque(false);
-        text.setLayout(new BoxLayout(text, BoxLayout.Y_AXIS));
+        JPanel column = new JPanel();
+        column.setOpaque(false);
+        column.setLayout(new BoxLayout(column, BoxLayout.Y_AXIS));
+        column.setBorder(BorderFactory.createEmptyBorder(2, 2, 10, 2));
 
-        JLabel title = UIStyle.heading("Dashboard");
+        JComponent hero = buildHero();
+        hero.setAlignmentX(Component.LEFT_ALIGNMENT);
+        column.add(hero);
+        column.add(Box.createVerticalStrut(20));
+
+        JComponent stats = buildStats();
+        stats.setAlignmentX(Component.LEFT_ALIGNMENT);
+        column.add(stats);
+        column.add(Box.createVerticalStrut(26));
+
+        JComponent heading = buildSectionHeading();
+        heading.setAlignmentX(Component.LEFT_ALIGNMENT);
+        column.add(heading);
+        column.add(Box.createVerticalStrut(14));
+
+        JComponent actions = buildQuickActions();
+        actions.setAlignmentX(Component.LEFT_ALIGNMENT);
+        column.add(actions);
+        column.add(Box.createVerticalGlue());
+
+        page.add(column, BorderLayout.CENTER);
+
+        JScrollPane scroll = new JScrollPane(page);
+        scroll.setBorder(null);
+        scroll.setOpaque(false);
+        scroll.getViewport().setOpaque(false);
+        scroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        scroll.getVerticalScrollBar().setUnitIncrement(18);
+        return scroll;
+    }
+
+    // ==================================================================
+    //  Hero
+    // ==================================================================
+
+    private JComponent buildHero() {
+        JPanel hero = new JPanel(new BorderLayout(24, 0)) {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            protected void paintComponent(Graphics graphics) {
+                Graphics2D g2 = (Graphics2D) graphics.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
+                        RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setPaint(new GradientPaint(0, 0, new Color(0x5420AD),
+                        getWidth(), getHeight(), new Color(0x9333D8)));
+                g2.fillRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 22, 22);
+                g2.dispose();
+                super.paintComponent(graphics);
+            }
+        };
+        hero.setOpaque(false);
+        hero.setBorder(BorderFactory.createEmptyBorder(28, 32, 28, 32));
+
+        JPanel texts = new JPanel();
+        texts.setOpaque(false);
+        texts.setLayout(new BoxLayout(texts, BoxLayout.Y_AXIS));
+
+        JPanel tag = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+        tag.setOpaque(true);
+        tag.setBackground(new Color(255, 255, 255, 40));
+        tag.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(255, 255, 255, 80)),
+                BorderFactory.createEmptyBorder(4, 7, 4, 7)));
+        tag.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JLabel tagIcon = UIStyle.emoji("\uD83C\uDF93", 11);
+        tagIcon.setForeground(Color.WHITE);
+        JLabel tagText = new JLabel("REC LOST & FOUND");
+        tagText.setFont(new java.awt.Font("Arial", java.awt.Font.BOLD, 10));
+        tagText.setForeground(Color.WHITE);
+        tag.add(tagIcon);
+        tag.add(tagText);
+
+        JLabel title = new JLabel("Welcome back, " + firstName() + "!");
+        title.setFont(new java.awt.Font("Arial", java.awt.Font.BOLD, 30));
+        title.setForeground(Color.WHITE);
         title.setAlignmentX(Component.LEFT_ALIGNMENT);
-        JLabel subtitle = UIStyle.subtitle(
-                "A live snapshot of lost, found, claimed and recovered items on campus.");
+
+        JLabel subtitle = new JLabel(
+                "Find what you've lost or help someone recover their belongings.");
+        subtitle.setFont(new java.awt.Font("Arial", java.awt.Font.PLAIN, 14));
+        subtitle.setForeground(new Color(0xF4EAFF));
         subtitle.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        text.add(title);
-        text.add(Box.createVerticalStrut(4));
-        text.add(subtitle);
-        header.add(text, BorderLayout.WEST);
+        JLabel hint = new JLabel("Choose an option below to get started.");
+        hint.setFont(new java.awt.Font("Arial", java.awt.Font.PLAIN, 12));
+        hint.setForeground(new Color(0xE9DAF8));
+        hint.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        rateLabel.setFont(UIStyle.FONT_BOLD);
-        rateLabel.setForeground(UIStyle.SUCCESS);
-        rateLabel.setHorizontalAlignment(SwingConstants.RIGHT);
-        header.add(rateLabel, BorderLayout.EAST);
+        texts.add(tag);
+        texts.add(Box.createVerticalStrut(12));
+        texts.add(title);
+        texts.add(Box.createVerticalStrut(6));
+        texts.add(subtitle);
+        texts.add(Box.createVerticalStrut(10));
+        texts.add(hint);
 
-        return header;
+        hero.add(texts, BorderLayout.CENTER);
+        hero.add(buildHeroCircle(), BorderLayout.EAST);
+
+        hero.setMaximumSize(new Dimension(Integer.MAX_VALUE, hero.getPreferredSize().height));
+        return hero;
     }
 
-    private JComponent buildCounters() {
-        JPanel row = new JPanel(new GridLayout(1, 4, 14, 0));
+    private JComponent buildHeroCircle() {
+        JPanel circle = new JPanel(new BorderLayout()) {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            protected void paintComponent(Graphics graphics) {
+                Graphics2D g2 = (Graphics2D) graphics.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
+                        RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(255, 255, 255, 36));
+                g2.fillOval(0, 0, getWidth() - 1, getHeight() - 1);
+                g2.dispose();
+                super.paintComponent(graphics);
+            }
+        };
+        circle.setOpaque(false);
+        circle.setPreferredSize(new Dimension(132, 132));
+        circle.setBorder(BorderFactory.createEmptyBorder(28, 28, 28, 28));
+
+        JPanel center = new JPanel(new java.awt.GridBagLayout());
+        center.setOpaque(false);
+        JLabel glyph = UIStyle.emoji("\uD83D\uDD0D", 48);
+        glyph.setForeground(Color.WHITE);
+        center.add(glyph);
+        circle.add(center, BorderLayout.CENTER);
+        return circle;
+    }
+
+    private String firstName() {
+        User user = SessionContext.getCurrentUser();
+        if (user == null || user.getFullName() == null
+                || user.getFullName().trim().isEmpty()) {
+            return "there";
+        }
+        return user.getFullName().trim().split("\\s+")[0];
+    }
+
+    // ==================================================================
+    //  Stats
+    // ==================================================================
+
+    private JComponent buildStats() {
+        JPanel row = new JPanel(new GridLayout(1, 5, 14, 0));
         row.setOpaque(false);
 
-        row.add(UIStyle.statCard(lostValue, "Lost item reports", UIStyle.WARNING));
-        row.add(UIStyle.statCard(foundValue, "Found item reports", UIStyle.ACCENT));
-        row.add(UIStyle.statCard(pendingValue, "Claims awaiting verification", UIStyle.DANGER));
-        row.add(UIStyle.statCard(recoveredValue, "Items recovered", UIStyle.SUCCESS));
+        row.add(UIStyle.finditStatCard(lostValue, "Lost Items",
+                "\uD83D\uDD0E", new Color(0xC2410C)));
+        row.add(UIStyle.finditStatCard(foundValue, "Found Items",
+                "\uD83D\uDCE6", UIStyle.ACCENT));
+        row.add(UIStyle.finditStatCard(pendingValue, "Claims Awaiting",
+                "\uD83E\uDD1D", new Color(0x7E22CE)));
+        row.add(UIStyle.finditStatCard(recoveredValue, "Items Recovered",
+                "\u2705", UIStyle.SUCCESS));
+        row.add(UIStyle.finditStatCard(rateValue, "Recovery Rate",
+                "\uD83D\uDCC8", new Color(0xA16207)));
 
+        row.setMaximumSize(new Dimension(Integer.MAX_VALUE,
+                row.getPreferredSize().height));
         return row;
     }
 
-    private JComponent buildRecentCard() {
-        JPanel card = UIStyle.card();
-        card.setLayout(new BorderLayout(0, 10));
+    // ==================================================================
+    //  Quick actions
+    // ==================================================================
 
-        JPanel titleRow = new JPanel(new BorderLayout());
-        titleRow.setOpaque(false);
+    private JComponent buildSectionHeading() {
+        JPanel heading = new JPanel();
+        heading.setOpaque(false);
+        heading.setLayout(new BoxLayout(heading, BoxLayout.Y_AXIS));
 
-        JLabel title = new JLabel("Recent reports");
-        title.setFont(UIStyle.FONT_BOLD.deriveFont(15f));
-        title.setForeground(UIStyle.TEXT);
-        titleRow.add(title, BorderLayout.WEST);
+        JLabel title = UIStyle.sectionHeading("What would you like to do?");
+        title.setAlignmentX(Component.LEFT_ALIGNMENT);
+        JLabel subtitle = UIStyle.subtitle(
+                "Search, match and track the items you care about.");
+        subtitle.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JLabel hint = UIStyle.muted("Ten most recent reports across all categories");
-        titleRow.add(hint, BorderLayout.EAST);
+        heading.add(title);
+        heading.add(Box.createVerticalStrut(4));
+        heading.add(subtitle);
+        heading.setMaximumSize(new Dimension(Integer.MAX_VALUE,
+                heading.getPreferredSize().height));
+        return heading;
+    }
 
-        card.add(titleRow, BorderLayout.NORTH);
+    private JComponent buildQuickActions() {
+        JPanel grid = new JPanel(new GridLayout(2, 2, 16, 16));
+        grid.setOpaque(false);
 
-        JTable table = new JTable(tableModel);
-        UIStyle.styleTable(table);
-        table.getColumnModel().getColumn(0).setPreferredWidth(45);
-        table.getColumnModel().getColumn(1).setPreferredWidth(60);
-        table.getColumnModel().getColumn(2).setPreferredWidth(280);
-        table.getColumnModel().getColumn(3).setPreferredWidth(120);
-        table.getColumnModel().getColumn(4).setPreferredWidth(120);
-        table.getColumnModel().getColumn(5).setPreferredWidth(100);
-        table.getColumnModel().getColumn(6).setPreferredWidth(90);
-        table.getColumnModel().getColumn(6).setCellRenderer(new StatusCellRenderer());
-        table.getColumnModel().getColumn(7).setPreferredWidth(140);
+        grid.add(UIStyle.quickCard("\uD83D\uDCE6", "Report Found Items",
+                "Register an item you picked up on campus.",
+                UIStyle.ACCENT, new Runnable() {
+                    @Override
+                    public void run() {
+                        navigator.openReport();
+                    }
+                }));
+        grid.add(UIStyle.quickCard("\uD83D\uDD0D", "Search and Claims",
+                "Find reported items and claim ownership.",
+                new Color(0x0284C7), new Runnable() {
+                    @Override
+                    public void run() {
+                        navigator.openFoundItems();
+                    }
+                }));
+        grid.add(UIStyle.quickCard("\uD83E\uDD1D", "Ownership Claims",
+                "Track claims and confirm item handovers.",
+                UIStyle.SUCCESS, new Runnable() {
+                    @Override
+                    public void run() {
+                        navigator.openClaims();
+                    }
+                }));
+        grid.add(UIStyle.quickCard("\uD83D\uDCCA", "Reports & Analytics",
+                "Recovery rate, categories and monthly trends.",
+                new Color(0xD97706), new Runnable() {
+                    @Override
+                    public void run() {
+                        navigator.openReports();
+                    }
+                }));
 
-        card.add(UIStyle.scroll(table), BorderLayout.CENTER);
-        return card;
+        grid.setMaximumSize(new Dimension(Integer.MAX_VALUE,
+                grid.getPreferredSize().height));
+        return grid;
     }
 
     @Override
     public void refreshData() {
-        Async.run(() -> new Snapshot(reportService.buildSummary(), itemService.recent(10)),
-                snapshot -> {
-                    ReportSummary summary = snapshot.summary;
+        Async.run(() -> reportService.buildSummary(),
+                summary -> {
                     lostValue.setText(String.valueOf(summary.getTotalLost()));
                     foundValue.setText(String.valueOf(summary.getTotalFound()));
                     pendingValue.setText(String.valueOf(summary.getPendingClaims()));
                     recoveredValue.setText(String.valueOf(summary.getTotalRecovered()));
-                    rateLabel.setText(String.format("Recovery rate %.1f%%  ·  %d open items",
-                            summary.getRecoveryRate(), summary.getTotalOpen()));
-
-                    List<Object[]> rows = new ArrayList<Object[]>();
-                    for (Item item : snapshot.recent) {
-                        rows.add(new Object[]{
-                                item.getItemId(),
-                                item.getItemType().getLabel(),
-                                item.getTitle(),
-                                item.getCategoryName(),
-                                item.getLocationName(),
-                                item.getEventDate(),
-                                item.getStatus().getLabel(),
-                                item.getReporterName()});
-                    }
-                    tableModel.setRows(rows);
+                    rateValue.setText(String.format("%.1f%%", summary.getRecoveryRate()));
                 },
                 error -> Async.showError(this, error, "Could not load the dashboard"));
     }
 
-    /** Immutable result of the two background queries. */
-    private static final class Snapshot {
-        private final ReportSummary summary;
-        private final List<Item> recent;
+    /** Transparent page so the shell background shows through. */
+    private static final class HomePage extends JPanel implements Scrollable {
 
-        private Snapshot(ReportSummary summary, List<Item> recent) {
-            this.summary = summary;
-            this.recent = recent;
+        private static final long serialVersionUID = 1L;
+
+        HomePage() {
+            setOpaque(false);
+        }
+
+        @Override
+        public Dimension getPreferredScrollableViewportSize() {
+            return getPreferredSize();
+        }
+
+        @Override
+        public int getScrollableUnitIncrement(Rectangle visibleRect,
+                                              int orientation, int direction) {
+            return 18;
+        }
+
+        @Override
+        public int getScrollableBlockIncrement(Rectangle visibleRect,
+                                               int orientation, int direction) {
+            return Math.max(40, visibleRect.height - 40);
+        }
+
+        @Override
+        public boolean getScrollableTracksViewportWidth() {
+            return true;
+        }
+
+        @Override
+        public boolean getScrollableTracksViewportHeight() {
+            return getParent() instanceof javax.swing.JViewport
+                    && getPreferredSize().height < getParent().getHeight();
         }
     }
 }

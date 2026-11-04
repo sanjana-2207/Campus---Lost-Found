@@ -1,5 +1,6 @@
 package com.campus.lostfound.model;
 
+import com.campus.lostfound.util.DateFormats;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 
@@ -65,7 +66,7 @@ public abstract class Item {
                 + "  |  " + safe(title)
                 + "  |  " + (category == null ? "-" : category.getName())
                 + "  |  " + (location == null ? "-" : location.getName())
-                + "  |  " + (eventDate == null ? "-" : eventDate)
+                + "  |  " + DateFormats.date(eventDate)
                 + "  |  " + status.getLabel();
     }
 
