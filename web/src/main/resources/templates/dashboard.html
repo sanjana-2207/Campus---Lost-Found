@@ -17,14 +17,7 @@
         <div class="hero-circle">🔍</div>
     </section>
 
-    <section class="stats-grid">
-        <article class="stat-card">
-            <div class="stat-icon warm">🔎</div>
-            <div>
-                <span>Lost Items</span>
-                <strong th:text="${summary.totalLost}">9</strong>
-            </div>
-        </article>
+    <section class="stats-grid four">
         <article class="stat-card">
             <div class="stat-icon purple">📦</div>
             <div>
@@ -69,11 +62,11 @@
             </div>
             <span class="action-arrow">&#8594;</span>
         </a>
-        <a th:href="@{/found-items}" class="action-card">
+        <a th:href="@{/lost-items}" class="action-card">
             <span class="action-icon blue">&#128269;</span>
             <div class="action-text">
-                <h3>Search Found Items</h3>
-                <p>Find reported items and claim ownership.</p>
+                <h3>Search Lost Items</h3>
+                <p>Search lost reports from across the campus.</p>
             </div>
             <span class="action-arrow">&#8594;</span>
         </a>
