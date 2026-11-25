@@ -244,22 +244,7 @@ public class ItemService {
         item.setStorageLocation(storage);
         item.setHandedToSecurity(handedToSecurity);
         item.setFinderNotes(clean(finderNotes));
-
-        if (photo != null && !photo.isEmpty()) {
-            String contentType = photo.getContentType();
-            if (contentType == null || !contentType.startsWith("image/")) {
-                throw new IllegalArgumentException("Choose a valid image file.");
-            }
-            if (photo.getSize() > MAX_PHOTO_BYTES) {
-                throw new IllegalArgumentException("The photo must be 8 MB or smaller.");
-            }
-            try {
-                item.setPhoto(photo.getBytes());
-                item.setPhotoContentType(contentType);
-            } catch (IOException ex) {
-                throw new IllegalArgumentException("The photo could not be read.");
-            }
-        }
+        applyPhoto(item, photo);
 
         return items.save(item);
     }
@@ -267,7 +252,8 @@ public class ItemService {
     @Transactional
     public Item reportLost(String title, String description, Long categoryId,
                            Long locationId, LocalDate eventDate,
-                           String contactInfo, String reward, User reporter) {
+                           String contactInfo, String reward, MultipartFile photo,
+                           User reporter) {
         String cleanTitle = clean(title);
         String cleanDescription = clean(description);
         String cleanContact = clean(contactInfo);
@@ -306,7 +292,27 @@ public class ItemService {
         item.setCreatedAt(java.time.LocalDateTime.now());
         item.setContactInfo(cleanContact);
         item.setReward(cleanReward);
+        applyPhoto(item, photo);
         return items.save(item);
+    }
+
+    private void applyPhoto(Item item, MultipartFile photo) {
+        if (photo == null || photo.isEmpty()) {
+            return;
+        }
+        String contentType = photo.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            throw new IllegalArgumentException("Choose a valid image file.");
+        }
+        if (photo.getSize() > MAX_PHOTO_BYTES) {
+            throw new IllegalArgumentException("The photo must be 8 MB or smaller.");
+        }
+        try {
+            item.setPhoto(photo.getBytes());
+            item.setPhotoContentType(contentType);
+        } catch (IOException ex) {
+            throw new IllegalArgumentException("The photo could not be read.");
+        }
     }
 
     private boolean contains(String value, String search) {

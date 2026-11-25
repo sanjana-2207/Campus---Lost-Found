@@ -1,8 +1,10 @@
 package com.campus.lostfound;
 
 import com.campus.lostfound.config.DBConnection;
+import com.campus.lostfound.service.ItemService;
 import com.campus.lostfound.ui.LoginFrame;
 import com.campus.lostfound.ui.UIStyle;
+import com.campus.lostfound.util.DemoPhotos;
 
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
@@ -38,6 +40,7 @@ public final class Main {
                     // Creating the singleton verifies db.properties and the driver
                     // before the user sees the login screen.
                     DBConnection.getInstance();
+                    DemoPhotos.ensureDemoPhotos(new ItemService());
                     new LoginFrame().setVisible(true);
                 } catch (RuntimeException ex) {
                     JOptionPane.showMessageDialog(null,

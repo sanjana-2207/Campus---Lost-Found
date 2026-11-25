@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.time.LocalDate;
@@ -126,6 +127,7 @@ public class LostItemController {
                              @RequestParam String eventDate,
                              @RequestParam(required = false) String contactInfo,
                              @RequestParam(required = false) String reward,
+                             @RequestParam(required = false) MultipartFile photo,
                              Authentication authentication,
                              Model model,
                              RedirectAttributes redirect) {
@@ -138,7 +140,7 @@ public class LostItemController {
                 throw new IllegalArgumentException("Enter the date as dd-MM-yyyy.");
             }
             Item item = itemService.reportLost(title, description, categoryId,
-                    locationId, when, contactInfo, reward, user);
+                    locationId, when, contactInfo, reward, photo, user);
             redirect.addFlashAttribute("message",
                     "Lost report #" + item.getId()
                             + " saved. Finders can now see it in Lost Items.");

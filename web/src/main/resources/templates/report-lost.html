@@ -13,7 +13,7 @@
 
     <div th:replace="~{fragments/alerts :: alerts}"></div>
 
-    <form th:action="@{/report-lost}" method="post" class="card form-card">
+    <form th:action="@{/report-lost}" method="post" enctype="multipart/form-data" class="card form-card">
         <label class="field">
             <span>Item title *</span>
             <input type="text" name="title" th:value="${title}" required maxlength="120"
@@ -66,6 +66,23 @@
                       th:text="${description}"
                       placeholder="Describe the item clearly so a finder can identify it."></textarea>
         </label>
+
+        <div class="photo-field">
+            <div>
+                <span class="field-label">Photo (optional)</span>
+                <div class="photo-preview" id="photoPreview">
+                    <span>No photo selected</span>
+                </div>
+            </div>
+            <div class="photo-actions">
+                <label class="btn btn-secondary">
+                    Choose photo
+                    <input type="file" name="photo" id="photoInput" accept="image/*" hidden>
+                </label>
+                <button type="button" class="btn btn-secondary" id="clearPhoto">Remove photo</button>
+                <p class="muted small">JPG, PNG, GIF or WebP - up to 8 MB</p>
+            </div>
+        </div>
 
         <div class="form-actions">
             <button type="submit" class="btn btn-primary">Submit report</button>

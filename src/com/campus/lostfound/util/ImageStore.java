@@ -67,6 +67,20 @@ public final class ImageStore {
                 StandardCopyOption.REPLACE_EXISTING);
     }
 
+    /** Writes pre-rendered demo bytes to uploads/item_<id>.<ext>. */
+    public static void saveBytesForItem(int itemId, byte[] data, String extension)
+            throws IOException {
+        if (data == null || data.length == 0) {
+            return;
+        }
+        if (!UPLOAD_DIR.exists() && !UPLOAD_DIR.mkdirs()) {
+            throw new IOException("Could not create the uploads folder.");
+        }
+        deleteForItem(itemId);
+        File target = new File(UPLOAD_DIR, "item_" + itemId + "." + extension);
+        Files.write(target.toPath(), data);
+    }
+
     /** Scaled thumbnail for an item, or null when it has no photo. */
     public static ImageIcon loadForItem(int itemId, int maxWidth, int maxHeight) {
         File file = findForItem(itemId);
