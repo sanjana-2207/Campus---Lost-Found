@@ -7,7 +7,7 @@
 <main class="page">
     <header class="page-head">
         <h1>Lost Items</h1>
-        <p>Browse lost reports from around campus. If you found one of these items, contact the owner or hand it to the security office.</p>
+        <p>Browse lost reports from around campus. Found your item? Submit the proof and claim it.</p>
         <a th:replace="~{fragments/back :: back}"></a>
     </header>
 
@@ -88,7 +88,7 @@
                 </div>
                 <div class="item-footer">
                     <span class="muted small">Reported by <span th:text="${item.reporterName}">Reporter</span></span>
-                    <a th:href="@{/lost-items/{id}(id=${item.id})}" class="btn btn-primary btn-small">View details</a>
+                    <a th:href="@{/lost-items/{id}(id=${item.id})}" class="btn btn-primary btn-small">Submit proof / claim</a>
                 </div>
             </div>
         </article>
