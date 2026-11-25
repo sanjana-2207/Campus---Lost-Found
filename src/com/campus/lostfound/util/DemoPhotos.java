@@ -55,13 +55,15 @@ public final class DemoPhotos {
         try {
             List<Item> items = itemService.search(new ItemFilter());
             for (Item item : items) {
-                if (ImageStore.hasPhoto(item.getItemId())
-                        || !DEMO_TITLES.contains(item.getTitle())) {
+                if (!DEMO_TITLES.contains(item.getTitle())) {
                     continue;
                 }
                 byte[] bundled = bundledPhoto(item.getTitle());
                 if (bundled != null) {
                     ImageStore.saveBytesForItem(item.getItemId(), bundled, "jpg");
+                    continue;
+                }
+                if (ImageStore.hasPhoto(item.getItemId())) {
                     continue;
                 }
                 byte[] png = render(item.getTitle());
