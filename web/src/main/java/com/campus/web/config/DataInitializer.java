@@ -32,6 +32,8 @@ import java.awt.geom.Rectangle2D;
 import java.awt.geom.RoundRectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -229,7 +231,7 @@ public class DataInitializer {
         item.setStatus(status);
         item.setCreatedAt(createdAt);
         item.setPhoto(photo(title));
-        item.setPhotoContentType("image/png");
+        item.setPhotoContentType(photoType(title));
         return items.save(item);
     }
 
@@ -252,7 +254,7 @@ public class DataInitializer {
         item.setFinderNotes(notes);
         item.setCreatedAt(createdAt);
         item.setPhoto(photo != null ? photo : photo(title));
-        item.setPhotoContentType("image/png");
+        item.setPhotoContentType(photoType(title));
         return items.save(item);
     }
 
@@ -273,7 +275,58 @@ public class DataInitializer {
         claims.save(claim);
     }
 
+    /** Real, freely licensed demo photos bundled with the web app. */
+    private byte[] bundledPhoto(String label) {
+        String file = demoImageFile(label);
+        if (file == null) {
+            return null;
+        }
+        try (InputStream in = getClass().getResourceAsStream(
+                "/static/images/demo/" + file)) {
+            return in == null ? null : in.readAllBytes();
+        } catch (IOException ex) {
+            return null;
+        }
+    }
+
+    private String photoType(String label) {
+        return demoImageFile(label) == null ? "image/png" : "image/jpeg";
+    }
+
+    private String demoImageFile(String label) {
+        String key = label == null ? "" : label.toLowerCase(Locale.ROOT);
+        if (key.contains("charger")) {
+            return "charger.jpg";
+        }
+        if (key.contains("bottle")) {
+            return "bottle.jpg";
+        }
+        if (key.contains("id card") || key.contains("card")) {
+            return "id-card.jpg";
+        }
+        if (key.contains("key")) {
+            return "keys.jpg";
+        }
+        if (key.contains("mouse")) {
+            return "mouse.jpg";
+        }
+        if (key.contains("spectacle") || key.contains("glasses")) {
+            return "spectacles.jpg";
+        }
+        if (key.contains("wallet")) {
+            return "wallet.jpg";
+        }
+        if (key.contains("calculator")) {
+            return "calculator.jpg";
+        }
+        return null;
+    }
+
     private byte[] photo(String label) {
+        byte[] bundled = bundledPhoto(label);
+        if (bundled != null) {
+            return bundled;
+        }
         try {
             int width = 640;
             int height = 440;

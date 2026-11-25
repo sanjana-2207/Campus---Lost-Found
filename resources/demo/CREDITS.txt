@@ -1,0 +1,11 @@
+﻿Demo photo credits
+Images are from Wikimedia Commons. See each file page for author and license.
+
+charger.jpg	Notebook-Computer-AC-Adapter.jpg	https://commons.wikimedia.org/wiki/File:Notebook-Computer-AC-Adapter.jpg
+bottle.jpg	A blue water bottle.jpg	https://commons.wikimedia.org/wiki/File:A_blue_water_bottle.jpg
+id-card.jpg	Student ID of Doshisha University 20100401.jpg	https://commons.wikimedia.org/wiki/File:Student_ID_of_Doshisha_University_20100401.jpg
+keys.jpg	Door key for lock type BKS Janus on keyring.jpg	https://commons.wikimedia.org/wiki/File:Door_key_for_lock_type_BKS_Janus_on_keyring.jpg
+mouse.jpg	A black wireless computer mouse.jpg	https://commons.wikimedia.org/wiki/File:A_black_wireless_computer_mouse.jpg
+spectacles.jpg	Black Titanium Frame Eyeglasses, JINS MTF-16S-151B, 1.jpg	https://commons.wikimedia.org/wiki/File:Black_Titanium_Frame_Eyeglasses,_JINS_MTF-16S-151B,_1.jpg
+wallet.jpg	Leather bi-fold wallet by Eugene Pik (2021) 04.jpg	https://commons.wikimedia.org/wiki/File:Leather_bi-fold_wallet_by_Eugene_Pik_(2021)_04.jpg
+calculator.jpg	Casio fx-991EX Scientific Calculator.jpg	https://commons.wikimedia.org/wiki/File:Casio_fx-991EX_Scientific_Calculator.jpg

@@ -17,6 +17,8 @@ import java.awt.geom.Rectangle2D;
 import java.awt.geom.RoundRectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -57,6 +59,11 @@ public final class DemoPhotos {
                         || !DEMO_TITLES.contains(item.getTitle())) {
                     continue;
                 }
+                byte[] bundled = bundledPhoto(item.getTitle());
+                if (bundled != null) {
+                    ImageStore.saveBytesForItem(item.getItemId(), bundled, "jpg");
+                    continue;
+                }
                 byte[] png = render(item.getTitle());
                 if (png != null) {
                     ImageStore.saveBytesForItem(item.getItemId(), png, "png");
@@ -65,6 +72,57 @@ public final class DemoPhotos {
         } catch (Exception ex) {
             // Demo photos are optional and must never stop the app from starting.
         }
+    }
+
+    private static byte[] bundledPhoto(String label) {
+        String file = demoImageFile(label);
+        if (file == null) {
+            return null;
+        }
+        try (InputStream in = DemoPhotos.class.getResourceAsStream("/demo/" + file)) {
+            return in == null ? null : readAll(in);
+        } catch (IOException ex) {
+            return null;
+        }
+    }
+
+    private static String demoImageFile(String label) {
+        String key = label == null ? "" : label.toLowerCase(Locale.ROOT);
+        if (key.contains("charger")) {
+            return "charger.jpg";
+        }
+        if (key.contains("bottle")) {
+            return "bottle.jpg";
+        }
+        if (key.contains("id card") || key.contains("card")) {
+            return "id-card.jpg";
+        }
+        if (key.contains("key")) {
+            return "keys.jpg";
+        }
+        if (key.contains("mouse")) {
+            return "mouse.jpg";
+        }
+        if (key.contains("spectacle") || key.contains("glasses")) {
+            return "spectacles.jpg";
+        }
+        if (key.contains("wallet")) {
+            return "wallet.jpg";
+        }
+        if (key.contains("calculator")) {
+            return "calculator.jpg";
+        }
+        return null;
+    }
+
+    private static byte[] readAll(InputStream in) throws IOException {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        byte[] buffer = new byte[8192];
+        int read;
+        while ((read = in.read(buffer)) >= 0) {
+            output.write(buffer, 0, read);
+        }
+        return output.toByteArray();
     }
 
     private static byte[] render(String label) {
