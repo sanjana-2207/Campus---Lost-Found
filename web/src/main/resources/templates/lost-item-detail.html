@@ -46,8 +46,17 @@
         <p>This is your report. You can track all your reports from <a th:href="@{/my-reports}">My reports</a>.</p>
     </section>
 
-    <section class="card note-card" th:unless="${ownItem}">
-        <p>Found this item? <a th:href="@{/report-found}">Report it as found</a> and hand it to the security office so the owner can collect it.</p>
+    <section class="card claim-card">
+        <h2>Found your item?</h2>
+        <p class="muted">Claim this item by providing proof of ownership. Describe the item in detail - colour, marks, contents and when you lost it.</p>
+        <form th:action="@{/lost-items/{id}/claim(id=${item.id})}" method="post" class="form-stack">
+            <label class="field">
+                <span>Proof of ownership *</span>
+                <textarea name="proof" rows="4" required
+                          placeholder="Mention colour, marks, contents or anything only the owner knows."></textarea>
+            </label>
+            <button type="submit" class="btn btn-primary">Submit ownership claim</button>
+        </form>
         <p th:if="${item.contactInfo != null and !item.contactInfo.isBlank()}" class="muted">
             The owner can be reached at <span th:text="${item.contactInfo}">contact</span>.
         </p>

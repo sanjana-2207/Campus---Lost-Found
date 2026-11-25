@@ -171,7 +171,7 @@ public class MatchesPanel extends JPanel implements Refreshable {
                     JOptionPane.INFORMATION_MESSAGE);
             return;
         }
-        if (ItemDetailDialog.open(this, item, claimService)) {
+        if (ItemDetailDialog.open(this, item, claimService, itemService)) {
             refreshData();
         }
     }

@@ -190,6 +190,6 @@ public class MyReportsPanel extends JPanel implements Refreshable {
         if (modelRow < 0 || modelRow >= currentItems.size()) {
             return;
         }
-        ItemDetailDialog.open(this, currentItems.get(modelRow), claimService);
+        ItemDetailDialog.open(this, currentItems.get(modelRow), claimService, itemService);
     }
 }

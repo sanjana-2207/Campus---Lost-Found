@@ -3,6 +3,7 @@ package com.campus.web.web;
 import com.campus.web.model.Item;
 import com.campus.web.model.ItemType;
 import com.campus.web.model.User;
+import com.campus.web.service.ClaimService;
 import com.campus.web.service.ItemService;
 import com.campus.web.service.UserService;
 import org.springframework.security.core.Authentication;
@@ -18,6 +19,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.List;
+import java.util.Optional;
 
 @Controller
 public class LostItemController {
@@ -25,10 +27,13 @@ public class LostItemController {
     private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("dd-MM-yyyy");
 
     private final ItemService itemService;
+    private final ClaimService claimService;
     private final UserService userService;
 
-    public LostItemController(ItemService itemService, UserService userService) {
+    public LostItemController(ItemService itemService, ClaimService claimService,
+                              UserService userService) {
         this.itemService = itemService;
+        this.claimService = claimService;
         this.userService = userService;
     }
 
@@ -72,6 +77,37 @@ public class LostItemController {
         model.addAttribute("item", item);
         model.addAttribute("ownItem", ownItem);
         return "lost-item-detail";
+    }
+
+    @PostMapping("/lost-items/{id}/claim")
+    public String claimLostItem(@PathVariable Long id,
+                                @RequestParam String proof,
+                                Authentication authentication,
+                                RedirectAttributes redirect) {
+        User user = userService.currentUser(authentication);
+        Item lost = itemService.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Item not found."));
+        if (lost.getType() != ItemType.LOST) {
+            return "redirect:/found-items/" + id;
+        }
+
+        Optional<Item> match = itemService.findClaimableMatchForLost(lost, user);
+        if (match.isEmpty()) {
+            redirect.addFlashAttribute("error",
+                    "No matching found item is available to claim yet. "
+                            + "Please check Found Items or contact the security office.");
+            return "redirect:/lost-items/" + id;
+        }
+
+        try {
+            claimService.submitClaim(match.get(), user, proof);
+            redirect.addFlashAttribute("message",
+                    "Your claim was submitted for \"" + match.get().getTitle()
+                            + "\". Staff will verify it.");
+        } catch (IllegalArgumentException ex) {
+            redirect.addFlashAttribute("error", ex.getMessage());
+        }
+        return "redirect:/lost-items/" + id;
     }
 
     @GetMapping("/report-lost")

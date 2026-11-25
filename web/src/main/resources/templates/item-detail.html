@@ -41,8 +41,8 @@
     </div>
 
     <section class="card claim-card" th:if="${claimable}">
-        <h2>Is this yours?</h2>
-        <p class="muted">Describe the item in detail - colour, marks, contents and when you lost it.</p>
+        <h2>Found your item?</h2>
+        <p class="muted">Claim this item by providing proof of ownership. Describe the item in detail - colour, marks, contents and when you lost it.</p>
         <form th:action="@{/found-items/{id}/claim(id=${item.id})}" method="post" class="form-stack">
             <label class="field">
                 <span>Proof of ownership *</span>

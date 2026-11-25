@@ -16,6 +16,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -164,6 +165,43 @@ public class ItemService {
             result.add(item);
         }
         return result;
+    }
+
+    /**
+     * Best claimable found item for a lost report. Owners searching from a lost
+     * report are pointed at the found item that matches it, so the proof of
+     * ownership is filed against the actual item waiting at the security desk.
+     */
+    public Optional<Item> findClaimableMatchForLost(Item lost, User claimant) {
+        List<Item> candidates = items.findByTypeAndStatusInOrderByCreatedAtDesc(
+                ItemType.FOUND, List.of(ItemStatus.OPEN, ItemStatus.MATCHED));
+
+        Item best = null;
+        long bestScore = Long.MAX_VALUE;
+        for (Item candidate : candidates) {
+            if (lost.getCategory() == null || candidate.getCategory() == null
+                    || !lost.getCategory().getId().equals(candidate.getCategory().getId())) {
+                continue;
+            }
+            if (claimant != null && candidate.getReporter() != null
+                    && candidate.getReporter().getId().equals(claimant.getId())) {
+                continue;
+            }
+            long score = 0;
+            if (lost.getLocation() != null && candidate.getLocation() != null
+                    && lost.getLocation().getId().equals(candidate.getLocation().getId())) {
+                score -= 1000;
+            }
+            if (lost.getEventDate() != null && candidate.getEventDate() != null) {
+                score += Math.abs(ChronoUnit.DAYS.between(
+                        lost.getEventDate(), candidate.getEventDate()));
+            }
+            if (score < bestScore) {
+                bestScore = score;
+                best = candidate;
+            }
+        }
+        return Optional.ofNullable(best);
     }
 
     @Transactional

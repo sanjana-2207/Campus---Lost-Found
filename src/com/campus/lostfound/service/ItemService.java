@@ -10,11 +10,14 @@ import com.campus.lostfound.model.FoundItem;
 import com.campus.lostfound.model.Item;
 import com.campus.lostfound.model.ItemFilter;
 import com.campus.lostfound.model.ItemStatus;
+import com.campus.lostfound.model.ItemType;
 import com.campus.lostfound.model.Location;
 import com.campus.lostfound.model.LostItem;
+import com.campus.lostfound.model.User;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 /**
@@ -64,6 +67,45 @@ public class ItemService {
 
     public List<Item> reportsBy(int userId) {
         return itemDAO.findByReporter(userId);
+    }
+
+    /**
+     * Best claimable found report for a lost report. Used when an owner files a
+     * claim from the lost report instead of browsing found items first.
+     */
+    public Item findClaimableMatchForLost(Item lost, User claimant) {
+        if (lost == null || lost.getCategory() == null) {
+            return null;
+        }
+        ItemFilter filter = new ItemFilter()
+                .setItemType(ItemType.FOUND)
+                .setClaimableOnly(true)
+                .setCategoryId(lost.getCategory().getCategoryId());
+        List<Item> candidates = itemDAO.search(filter);
+
+        Item best = null;
+        long bestScore = Long.MAX_VALUE;
+        for (Item candidate : candidates) {
+            if (claimant != null && candidate.getReportedBy() != null
+                    && candidate.getReportedBy().getUserId() == claimant.getUserId()) {
+                continue;
+            }
+            long score = 0;
+            if (lost.getLocation() != null && candidate.getLocation() != null
+                    && lost.getLocation().getLocationId()
+                        == candidate.getLocation().getLocationId()) {
+                score -= 1000;
+            }
+            if (lost.getEventDate() != null && candidate.getEventDate() != null) {
+                score += Math.abs(ChronoUnit.DAYS.between(
+                        lost.getEventDate(), candidate.getEventDate()));
+            }
+            if (score < bestScore) {
+                bestScore = score;
+                best = candidate;
+            }
+        }
+        return best;
     }
 
     public List<Category> categories() {

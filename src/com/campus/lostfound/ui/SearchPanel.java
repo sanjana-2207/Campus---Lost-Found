@@ -469,7 +469,7 @@ public class SearchPanel extends JPanel implements Refreshable {
         }
 
         Item item = currentItems.get(modelRow);
-        boolean claimed = ItemDetailDialog.open(this, item, claimService);
+        boolean claimed = ItemDetailDialog.open(this, item, claimService, itemService);
         if (claimed) {
             runSearch();
         }

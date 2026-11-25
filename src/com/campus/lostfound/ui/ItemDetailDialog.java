@@ -5,12 +5,14 @@ import com.campus.lostfound.model.Item;
 import com.campus.lostfound.model.ItemStatus;
 import com.campus.lostfound.model.ItemType;
 import com.campus.lostfound.service.ClaimService;
+import com.campus.lostfound.service.ItemService;
 import com.campus.lostfound.util.DateFormats;
 import com.campus.lostfound.util.ImageStore;
 import com.campus.lostfound.util.SessionContext;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
+import javax.swing.BoxLayout;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JComponent;
@@ -45,15 +47,18 @@ public class ItemDetailDialog extends JDialog {
 
     private final Item item;
     private final ClaimService claimService;
+    private final ItemService itemService;
     private boolean claimSubmitted;
 
     private final JLabel messageLabel = new JLabel(" ");
 
-    private ItemDetailDialog(Window owner, Item item, ClaimService claimService) {
+    private ItemDetailDialog(Window owner, Item item, ClaimService claimService,
+                             ItemService itemService) {
         super(owner, "Item #" + item.getItemId() + " details",
                 ModalityType.APPLICATION_MODAL);
         this.item = item;
         this.claimService = claimService;
+        this.itemService = itemService;
 
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
         setSize(700, 680);
@@ -71,9 +76,10 @@ public class ItemDetailDialog extends JDialog {
     }
 
     /** Shows the dialog and reports whether a claim was filed. */
-    public static boolean open(Component parent, Item item, ClaimService claimService) {
+    public static boolean open(Component parent, Item item, ClaimService claimService,
+                               ItemService itemService) {
         Window owner = SwingUtilities.getWindowAncestor(parent);
-        ItemDetailDialog dialog = new ItemDetailDialog(owner, item, claimService);
+        ItemDetailDialog dialog = new ItemDetailDialog(owner, item, claimService, itemService);
         dialog.setVisible(true);
         return dialog.claimSubmitted;
     }
@@ -177,14 +183,13 @@ public class ItemDetailDialog extends JDialog {
         boolean foundItem = item.getItemType() == ItemType.FOUND;
         boolean open = item.getStatus() == ItemStatus.OPEN
                 || item.getStatus() == ItemStatus.MATCHED;
-        boolean claimable = foundItem && open && !ownItem;
+        boolean claimable = (foundItem && open && !ownItem)
+                || (item.getItemType() == ItemType.LOST && open);
 
         if (!claimable) {
             String reason;
-            if (ownItem) {
+            if (ownItem && foundItem) {
                 reason = "You reported this item, so you cannot claim it.";
-            } else if (!foundItem) {
-                reason = "This is a lost-item report, so there is nothing to claim here.";
             } else {
                 reason = "This item is no longer open for claims.";
             }
@@ -194,12 +199,19 @@ public class ItemDetailDialog extends JDialog {
             return area;
         }
 
-        JPanel heading = new JPanel(new BorderLayout());
+        JPanel heading = new JPanel();
         heading.setOpaque(false);
-        JLabel title = new JLabel("Is this yours?");
+        heading.setLayout(new BoxLayout(heading, BoxLayout.Y_AXIS));
+        JLabel title = new JLabel("Found your item?");
         title.setFont(UIStyle.FONT_BOLD.deriveFont(14f));
         title.setForeground(UIStyle.TEXT);
-        heading.add(title, BorderLayout.WEST);
+        title.setAlignmentX(Component.LEFT_ALIGNMENT);
+        JLabel subtitle = UIStyle.muted(
+                "Claim this item by providing proof of ownership.");
+        subtitle.setAlignmentX(Component.LEFT_ALIGNMENT);
+        heading.add(title);
+        heading.add(Box.createVerticalStrut(2));
+        heading.add(subtitle);
         area.add(heading, BorderLayout.NORTH);
 
         JPanel body = new JPanel(new BorderLayout(0, 8));
@@ -268,12 +280,24 @@ public class ItemDetailDialog extends JDialog {
 
     private void submitClaim(String proof) {
         messageLabel.setText(" ");
+        Item target = item;
+        if (item.getItemType() == ItemType.LOST) {
+            target = itemService.findClaimableMatchForLost(
+                    item, SessionContext.getCurrentUser());
+            if (target == null) {
+                messageLabel.setText(
+                        "No matching found item is available to claim yet.");
+                return;
+            }
+        }
         try {
-            claimService.submitClaim(item, SessionContext.getCurrentUser(), proof);
+            claimService.submitClaim(target, SessionContext.getCurrentUser(), proof);
             claimSubmitted = true;
 
             JOptionPane.showMessageDialog(this,
-                    "Your claim has been submitted.\n"
+                    "Your claim has been submitted"
+                    + (target.getItemId() == item.getItemId()
+                        ? ".\n" : " for \"" + target.getTitle() + "\".\n")
                     + "Security staff will verify it and update the status.",
                     "Claim submitted", JOptionPane.INFORMATION_MESSAGE);
             dispose();
